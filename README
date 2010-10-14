@@ -1,0 +1,9 @@
+WMS-Mash is a WMS bookmarking service that allows you to gather data
+from various WMS servers and organize thematic virtual servers ("WMS
+relays").
+
+User frontend will be implemented with Django, and relay is
+implemented with Twisted.  PostgreSQL is used as a database backend.
+
+WMS is a Web Map Service
+http://en.wikipedia.org/wiki/Web_Map_Service
