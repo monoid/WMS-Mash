@@ -16,6 +16,27 @@ from txpostgres import txpostgres
 
 DBPOOL = None # TODO Global variables are BAD!
 
+class WmsHandler:
+    pass
+
+class GetCapabilitiesHandler(WmsHandler):
+    FORMATS = [ 'text/xml' ]
+    # Common required parameter SERVICE is excluded 
+    REQUIRED = []
+
+class GetDataHandler(WmsHandler):
+    FORMATS = [ 'image/png', 'image/png8', 'image/gif', 'image/jpeg', \
+                'image/tiff', 'image/tiff8' ]
+    REQUIRED = [ 'version', 'layers', 'styles', 'crs', 'bbox', \
+                 'width', 'height', 'format' ]
+
+class GetFeatureInfo(WmsHandler):
+    # These are formats that can be concatenated
+    FORMATS = [ 'text/xml', 'text/plain' ]
+    REQUIRED = [ 'version', 'layers', 'styles', 'crs', 'bbox', \
+                 'width', 'height', 'query_layers', 'info_format', \
+		 'i', 'j' ]
+
 class WmsRelayClient(HTTPClient):
     """
     Used by ProxyClientFactory to implement a simple web proxy.
