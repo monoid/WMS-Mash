@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from txpostgres import txpostgres
 from twisted.internet import reactor
