@@ -1,3 +1,5 @@
+from xml.sax import saxutils
+
 class Layer:
     id = None
     name = None
@@ -10,7 +12,7 @@ class Layer:
     order = None
     children = None
     
-    def __init__(self, dbrec, layersDict=None):
+    def __init__(self, dbrec, layerDict=None):
         self.id = dbrec[0]
         self.name = dbrec[1]
         self.title = dbrec[2]
@@ -18,28 +20,48 @@ class Layer:
         self.keywords = dbrec[4]
         self.remote_name = dbrec[5]
         self.remote_url = dbrec[6]
-        if layersDict and layersDict.key_exists(dbrec[7]):
-            self.parent = layersDict[dbrec[7]]
+        if layerDict is not None and layerDict.has_key(dbrec[7]):
+            self.parent = layerDict[dbrec[7]]
             self.parent.addChild(self)
         self.order = dbrec[8]
 
+        print "ID: %s " % self.id
+        print "Name: %s " % self.name
+        print "Parent: %s " % dbrec[7]
         self.children = []
 
-        if layersDict:
-            layersDict[self.id] = self
+        if layerDict is not None:
+            layerDict[self.id] = self
 
     def getOrder(self):
         return self.order
 
     def addChild(self, child):
-        self.children.append(child).sort(None, Layer.getOrder)
+        self.children.append(child)
+        self.children.sort(None, Layer.getOrder)
+
+    def dump(self, buf):
+        buf.write("<Layer>")
+        if (self.remote_name is None):
+            buf.write("<Title>%s</Title>" % (self.name,))
+        else:
+            buf.write("<Name>%s</Name>" % (self.name,))
+            if (self.title is not None):
+                buf.write("<Title>%s</Title>" % (self.title,))
+        if (self.abstract is not None):
+            buf.write("<Abstract>%s</Abstract>" % saxutils.escape(self.abstract))
+        for c in self.children:
+            c.dump(buf)
+        buf.write("</Layer>")
 
     @staticmethod
     def buildTree(records):
         layerDict = {}
         layers = []
-        root = Layer((0, '', '', '', '', '', '', -1, 0))
+        root = Layer((None, 'Root', '', '', '', '', '', None, 0), layerDict)
         for rec in records:
-            layers.append(Layer(rec))
+            l = Layer(rec, layerDict)
+            layers.append(l)
+        print layerDict
         return (root, layers, layerDict)
             

@@ -13,8 +13,10 @@ from twisted.web.server import NOT_DONE_YET
 from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
 
 from txpostgres import txpostgres
+import cStringIO
 
 from nrcgit.wmsmash.core import Wms
+import nrcgit.wmsmash.core
 
 DBPOOL = None # TODO Global variables are BAD!
 
@@ -172,10 +174,22 @@ class WmsRelayRequest(Request):
         self.finish()
 
     def handleGetCapabilities(self, layerset, qs):
-        d = DBPOOL.runQuery(
-"""SELECT layertree.id, layertree.name, parent_id
+        def gotLayersetData(layersetData):
+            layerData = DBPOOL.runQuery(
+"""SELECT layertree.id, layertree.name, layers.title, layers.abstract, layers.name,
+ servers.url, layertree.parent_id, layertree.parent_id, ord
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
-  WHERE layerset.name = %s""", (qs['SET'],))
+    LEFT JOIN layers ON layertree.layer_id = layers.id
+    LEFT JOIN servers ON layers.server_id = servers.id
+  WHERE layerset.name = %s ORDER BY parent_id ASC, ord ASC""", (qs['SET'],))
+            layerData.addCallback(lambda (layerDat): (layersetData, layerDat))
+            return layerData
+
+        layersetData = DBPOOL.runQuery(
+"""SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
+""", (qs['SET'],))
+        layersetData.addCallback(gotLayersetData)
+            
         def reportCapabilites(data):
             print data
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
@@ -208,10 +222,68 @@ class WmsRelayRequest(Request):
     <Fees>None</Fees>
     <AccessConstraints>None</AccessConstraints>
   </Service>
-</WMT_MS_Capabilities>""" % saxutils.escape(qs['SET']))
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <Format>application/vnd.ogc.wms_xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+            </Get>
+            <Post>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetCapabilities>
+      <GetMap>
+        <Format>image/png</Format>
+        <Format>image/gif</Format>
+        <Format>image/jpeg</Format>
+        <Format>image/png8</Format>
+        <Format>image/tiff</Format>
+        <Format>image/tiff8</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetMap>
+      <GetFeatureInfo>
+        <Format>text/plain</Format>
+        <Format>text/html</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetFeatureInfo>
+    </Request>
+""" % saxutils.escape(qs['SET']))
+            buf = cStringIO.StringIO()
+            (r, lrs, ld) = nrcgit.wmsmash.core.Layer.buildTree(reversed(data[1]))
+            r.dump(buf)
+            self.write(buf.getvalue())
+            buf.close()
+#             self.write("<Layer><Title>Root layer</Title>")
+#             for (id, name, parent, layer_id) in data[1]:
+#                 if parent is None:
+#                     self.write("<Layer>")
+#                     if layer_id is None:
+#                         self.write("<Title>%s</Title>" % name)
+#                     else:
+#                         self.write("<Name>%s</Name>" % name)
+#                     self.write("</Layer>")
+#             self.write("""</Layer>""");
+            self.write("""</Capability></WMT_MS_Capabilities>""")
             self.finish()
         
-        d.addCallbacks(reportCapabilites, lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
+        layersetData.addCallbacks(reportCapabilites, lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
         
     def process(self):
         """ TODO: parsing request
