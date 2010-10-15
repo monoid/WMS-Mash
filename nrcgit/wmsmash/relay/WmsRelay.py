@@ -4,6 +4,7 @@ WMS proxy.  Kind of.
 
 """
 import urlparse
+from xml.sax import saxutils
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
@@ -171,10 +172,46 @@ class WmsRelayRequest(Request):
         self.finish()
 
     def handleGetCapabilities(self, layerset, qs):
-        print 'GC'
-        print layerset
-        print DBPOOL
-        pass
+        d = DBPOOL.runQuery(
+"""SELECT layertree.id, layertree.name, parent_id
+  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
+  WHERE layerset.name = %s""", (qs['SET'],))
+        def reportCapabilites(data):
+            print data
+            self.write("""<?xml version="1.0" encoding="UTF-8"?>
+<WMT_MS_Capabilities version="1.1.1" updateSequence="70">
+  <Service>
+    <Name>%s</Name>
+    <Title>TODO_FROM_CONFIG</Title>
+    <Abstract>TODO_FROM_CONFIG</Abstract>
+    <KeywordList>
+      <Keyword>WMS</Keyword>
+    </KeywordList>
+    <ContactInformation>
+      <ContactPersonPrimary>
+        <ContactPerson>TODO_FROM_CONFIG</ContactPerson>
+        <ContactOrganization>TODO_FROM_CONFIG</ContactOrganization>
+      </ContactPersonPrimary>
+      <ContactPosition>TODO_FROM_CONFIG</ContactPosition>
+      <ContactAddress>
+        <AddressType>TODO_FROM_CONFIG</AddressType>
+        <Address>TODO_FROM_CONFIG</Address>
+        <City>TODO FROM CONFIG</City>
+        <StateOrProvince/>
+        <PostCode>TOOD_FROM_CONFIG</PostCode>
+        <Country>TODO_FROM_CONFIG</Country>
+      </ContactAddress>
+      <ContactVoiceTelephone>TODO_FROM_CONFIG</ContactVoiceTelephone>
+      <ContactFacsimileTelephone/>
+      <ContactElectronicMailAddress>TODO_FROM_CONFIG</ContactElectronicMailAddress>
+    </ContactInformation>
+    <Fees>None</Fees>
+    <AccessConstraints>None</AccessConstraints>
+  </Service>
+</WMT_MS_Capabilities>""" % saxutils.escape(qs['SET']))
+            self.finish()
+        
+        d.addCallbacks(reportCapabilites, lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
         
     def process(self):
         """ TODO: parsing request
@@ -185,29 +222,31 @@ class WmsRelayRequest(Request):
         4. Handler gets data from database and remote servers.
         """
 
-        parsed = urlparse.urlparse(self.uri)
-        qs = urlparse.parse_qs(parsed[4])
-        qs = WmsRelayRequest.canonicializeParams(qs)
+        try:
+            parsed = urlparse.urlparse(self.uri)
+            qs = urlparse.parse_qs(parsed[4])
+            qs = WmsRelayRequest.canonicializeParams(qs)
 
-        print qs
+            print qs
 
-        layerset = qs['SET'] # TODO: parse URL instead
-
-        if self.ensureWms(qs):
-#             type = qs['REQUEST'].upper()
-#             if type == 'GETCAPABILITIES':
-#                 return self.handleGetCapabilities(layerset, qs)
-#             elif type == 'GETMAP':
-#                 layers = self.getLayers(qs)
-#             elif type == 'GETFEATUREINFO':
-#                 layer = qs['LAYER']
-#                 req = qs.copy()
-#                 # TODO update req basing on database info
-            pass
-        else:
-            self.reportWmsError("Invalid WMS request", "InvalidRequest")
-
-        self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
+            layerset = qs['SET'] # TODO: parse URL instead
+            
+            if self.ensureWms(qs):
+                reqtype = qs['REQUEST'].upper()
+                if reqtype == 'GETCAPABILITIES':
+                    return self.handleGetCapabilities(layerset, qs)
+                elif reqtype == 'GETMAP':
+                    layers = self.getLayers(qs)
+                elif reqtype == 'GETFEATUREINFO':
+                    layer = qs['LAYER']
+                    req = qs.copy()
+                    # TODO update req basing on database info
+                    pass
+            else:
+                self.reportWmsError("Invalid WMS request", "InvalidRequest")
+            self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
+        except Exception as ex:
+            self.reportWmsError("Internal error: %s %s" % (type(ex), ex), "InternalError")
 #         protocol = parsed[0]
 #         host = parsed[1]
         # Find port used for remote connection:
