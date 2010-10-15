@@ -177,12 +177,12 @@ class WmsRelayRequest(Request):
         pass
         
     def process(self):
-        """ TODO: вот тут мы парсим входной запрос,
-        0. Переводим запрос в каноническую форму: ключи в верхний регистр.
-        1. Это вообще WMS? (SERVICE=WMS, VERSION=1.x)
-        2. Определяем тип запроса (REQUEST=GetMap)
-        3. Создаём соответсвующий обработчик
-        4. Обработчик спрашивает у базы, куда лезть и т.п.
+        """ TODO: parsing request
+        0. Traslate params to canonic form
+        1. Is is WMS? (SERVICE=WMS, VERSION=1.x)
+        2. Check type (REQUEST=GetMap)
+        3. Create an appropriate handler.
+        4. Handler gets data from database and remote servers.
         """
 
         parsed = urlparse.urlparse(self.uri)
