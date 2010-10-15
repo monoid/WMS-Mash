@@ -13,6 +13,7 @@ from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
 
 from txpostgres import txpostgres
 
+from nrcgit.wmsmash.core import Wms
 
 DBPOOL = None # TODO Global variables are BAD!
 
@@ -162,6 +163,13 @@ class WmsRelayRequest(Request):
     def getLayers(self, params):
         return params['LAYERS'].split(',')
 
+    def reportWmsError(self, errorMessage, code, locator=None):
+        xml = Wms.wmsErrorXmlString(errorMessage, code, locator)
+        self.setHeader('Content-type', 'application/vnd.ogc.se_xml')
+        self.setHeader('Length', str(len(xml)))
+        self.write(xml)
+        self.finish()
+
     def handleGetCapabilities(self, layerset, qs):
         print 'GC'
         print layerset
@@ -176,7 +184,7 @@ class WmsRelayRequest(Request):
         3. Создаём соответсвующий обработчик
         4. Обработчик спрашивает у базы, куда лезть и т.п.
         """
-        
+
         parsed = urlparse.urlparse(self.uri)
         qs = urlparse.parse_qs(parsed[4])
         qs = WmsRelayRequest.canonicializeParams(qs)
@@ -186,16 +194,20 @@ class WmsRelayRequest(Request):
         layerset = qs['SET'] # TODO: parse URL instead
 
         if self.ensureWms(qs):
-            type = qs['REQUEST'].upper()
-            if type == 'GETCAPABILITIES':
-                return self.handleGetCapabilities(layerset, qs)
-            elif type == 'GETMAP':
-                layers = self.getLayers(qs)
-            elif type == 'GETFEATUREINFO':
-                layer = qs['LAYER']
-                req = qs.copy()
-                # TODO update req basing on database info
-            
+#             type = qs['REQUEST'].upper()
+#             if type == 'GETCAPABILITIES':
+#                 return self.handleGetCapabilities(layerset, qs)
+#             elif type == 'GETMAP':
+#                 layers = self.getLayers(qs)
+#             elif type == 'GETFEATUREINFO':
+#                 layer = qs['LAYER']
+#                 req = qs.copy()
+#                 # TODO update req basing on database info
+            pass
+        else:
+            self.reportWmsError("Invalid WMS request", "InvalidRequest")
+
+        self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
 #         protocol = parsed[0]
 #         host = parsed[1]
         # Find port used for remote connection:
