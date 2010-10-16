@@ -192,6 +192,7 @@ class WmsRelayRequest(Request):
             
         def reportCapabilites(data):
             print data
+            self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
 <WMT_MS_Capabilities version="1.1.1" updateSequence="70">
   <Service>
