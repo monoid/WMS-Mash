@@ -198,8 +198,8 @@ class WmsRelayRequest(Request):
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
 <WMT_MS_Capabilities version="1.1.1" updateSequence="70">
   <Service>
-    <Name>%s</Name>
-    <Title>TODO_FROM_CONFIG</Title>
+    <Name>OGC:WMS</Name>
+    <Title>%s</Title>
     <Abstract>TODO_FROM_CONFIG</Abstract>
     <KeywordList>
       <Keyword>WMS</Keyword>
