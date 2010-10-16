@@ -25,7 +25,7 @@ class WmsHandler:
 
 class GetCapabilitiesHandler(WmsHandler):
     FORMATS = [ 'text/xml' ]
-    # Common required parameter SERVICE is excluded 
+    # Common required params like SERVICE and REQUEST are checked separately
     REQUIRED = []
 
 class GetDataHandler(WmsHandler):
@@ -156,6 +156,8 @@ class WmsRelayRequest(Request):
     def ensureWms(self, params):
         if (not params.has_key('SERVICE') or params['SERVICE'].upper() != 'WMS'):
             return False
+	if (not params.has_key('REQUEST')):
+	    return False
         # 1. Version number negotiation
         # 2. VERSION parameter is mandatory in requests other 
         #    than GetCapabilities
