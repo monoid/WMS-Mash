@@ -167,15 +167,20 @@ class WmsRelayRequest(Request):
 
     def handleGetCapabilities(self, layerset, qs):
         def gotLayersetData(layersetData):
-            layerData = DBPOOL.runQuery(
+            if len(layersetData) > 0:
+                layerData = DBPOOL.runQuery(
 """SELECT layertree.id, layertree.name, layers.title, layers.abstract, layers.name,
  servers.url, layertree.parent_id, layertree.parent_id, ord
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
   WHERE layerset.name = %s ORDER BY parent_id ASC, ord ASC""", (qs['SET'],))
-            layerData.addCallback(lambda (layerDat): (layersetData, layerDat))
-            return layerData
+                layerData.addCallback(lambda (layerDat): (layersetData, layerDat))
+                return layerData
+            else:
+                self.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
+                self.finish()
+                return None
 
         layersetData = DBPOOL.runQuery(
 """SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
@@ -183,6 +188,8 @@ class WmsRelayRequest(Request):
         layersetData.addCallback(gotLayersetData)
             
         def reportCapabilites(data):
+            if (data is None): return
+
             print data
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
