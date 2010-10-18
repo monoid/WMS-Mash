@@ -146,15 +146,8 @@ class WmsRelayRequest(Request):
         Request.__init__(self, channel, queued)
         self.reactor = reactor
 
-    @staticmethod
-    def canonicializeParams(params):
-        result = {}
-        for k in params.keys():
-            result[k.upper()] = params[k][0]
-        return result
-
     def ensureWms(self, params):
-        if (not params.has_key('SERVICE') or params['SERVICE'].upper() != 'WMS'):
+        if (not params.has_key('SERVICE') or params['SERVICE'] != 'WMS'):
             return False
 	if (not params.has_key('REQUEST')):
 	    return False
@@ -164,9 +157,6 @@ class WmsRelayRequest(Request):
 #         if (not params.has_key('VERSION') or params['VERSION'][0:2] != '1.'):
 #             return False
         return True
-
-    def getLayers(self, params):
-        return params['LAYERS'].split(',')
 
     def reportWmsError(self, errorMessage, code, locator=None):
         xml = Wms.wmsErrorXmlString(errorMessage, code, locator)
@@ -291,16 +281,15 @@ class WmsRelayRequest(Request):
     def process(self):
         """ TODO: parsing request
         0. Traslate params to canonic form
-        1. Is is WMS? (SERVICE=WMS, VERSION=1.x)
-        2. Check type (REQUEST=GetMap)
+        1. Is it a WMS? (SERVICE=WMS, VERSION=1.x)
+        2. Check type (REQUEST=GetMap etc)
         3. Create an appropriate handler.
         4. Handler gets data from database and remote servers.
         """
 
         try:
             parsed = urlparse.urlparse(self.uri)
-            qs = urlparse.parse_qs(parsed[4])
-            qs = WmsRelayRequest.canonicializeParams(qs)
+            qs = Wms.wmsParseQuery(parsed[4])
 
             print qs
 
@@ -311,7 +300,7 @@ class WmsRelayRequest(Request):
                 if reqtype == 'GETCAPABILITIES':
                     return self.handleGetCapabilities(layerset, qs)
                 elif reqtype == 'GETMAP':
-                    layers = self.getLayers(qs)
+                    layers = qs['LAYERS']
                 elif reqtype == 'GETFEATUREINFO':
                     layer = qs['LAYER']
                     req = qs.copy()
