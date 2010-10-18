@@ -74,6 +74,10 @@ class Layer:
         if (self.cap is not None):
             for srs in self.cap.xpath('/Layer/SRS'):
                 buf.write(etree.tostring(srs))
+            for bb in self.cap.xpath('/Layer/BoundingBox'):
+                buf.write(etree.tostring(bb))
+            for style in self.cap.xpath('/Layer/Style'):
+                buf.write(etree.tostring(style))
         for c in self.children:
             c.dump(buf)
         buf.write("</Layer>")
