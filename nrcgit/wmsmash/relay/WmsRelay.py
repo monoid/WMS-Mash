@@ -169,8 +169,9 @@ class WmsRelayRequest(Request):
         def gotLayersetData(layersetData):
             if len(layersetData) > 0:
                 layerData = DBPOOL.runQuery(
-"""SELECT layertree.id, layertree.name, layers.title, layers.abstract, layers.name,
- servers.url, layertree.parent_id, layertree.parent_id, ord
+"""SELECT layertree.id, layertree.name, layers.title, layers.abstract,
+          layers.name, servers.url, layertree.parent_id, layertree.parent_id,
+          layertree.ord, layers.latlngbb, layers.capabilites
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
