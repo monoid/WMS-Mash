@@ -158,8 +158,8 @@ class WmsRelayRequest(Request):
 #             return False
         return True
 
-    def reportWmsError(self, errorMessage, code, locator=None):
-        xml = Wms.wmsErrorXmlString(errorMessage, code, locator)
+    def reportWmsError(self, errorMessage, code):
+        xml = Wms.wmsErrorXmlString(errorMessage, code)
         self.setHeader('Content-type', 'application/vnd.ogc.se_xml')
         self.setHeader('Length', str(len(xml)))
         self.write(xml)
