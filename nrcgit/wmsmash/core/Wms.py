@@ -27,3 +27,24 @@ def wmsParseQuery(query_str):
             params[key] = urllib.unquote(val)
         
     return params
+
+def wmsBuildQuery(params):
+    """Compose HTTP query string from dictionary params.  If value is array,
+it is converted to comma-separated list with elements that will be escaped
+by this function.  Otherwise, value is converted to string that will be
+escaped by this function.  Key values are escaped too.
+
+Example:
+wmsBuildQuery({'QUERY':'GetMap', 'LAYERS':['owl,box','academ'], 'STYLE':['',''] })
+=> 'LAYERS=owl%2Cbox,academ&QUERY=GetMap&STYLE=,'
+"""
+    buf = []
+
+    for key, val in params.items():
+        if isinstance(val, list):
+            valstr = ','.join(map(urllib.quote, val))
+        else:
+            valstr = urllib.quote(str(val))
+        buf.append(urllib.quote(key)+'='+valstr)
+    return '&'.join(buf)
+        
