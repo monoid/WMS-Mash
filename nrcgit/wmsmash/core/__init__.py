@@ -69,7 +69,7 @@ class Layer:
             buf.write("<Abstract>%s</Abstract>" % saxutils.escape(self.abstract))
         # TODO: compute common LatLngBoundingBox for groups
         if (self.latlngbb is not None):
-            buf.write('<LatLngBoundingBox minx="%(minx)f" maxx="%(maxx)f" miny="%(miny)f" maxy="%(maxy)f" />' % self.latlngbb)
+            buf.write('<LatLonBoundingBox minx="%(minx)f" maxx="%(maxx)f" miny="%(miny)f" maxy="%(maxy)f" />' % self.latlngbb)
         # TODO: compute common SRS list for groups
         if (self.cap is not None):
             for srs in self.cap.xpath('/Layer/SRS'):
