@@ -56,6 +56,7 @@ class WmsSimpleClient(HTTPClient):
         self.remote = remote
         self.params = params
         # TODO: this should be handled carefully
+	del params['SET']
         self.rest = parsed.path+'?'+Wms.wmsBuildQuery(params)
         self.host = parsed.netloc.split(':')[0]
 
