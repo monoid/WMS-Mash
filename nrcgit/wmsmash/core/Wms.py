@@ -40,7 +40,7 @@ wmsBuildQuery({'QUERY':'GetMap', 'LAYERS':['owl,box','academ'], 'STYLE':['',''] 
 """
     buf = []
 
-    for key, val in params.items():
+    for key, val in params.iteritems():
         if isinstance(val, list):
             valstr = ','.join(map(urllib.quote, val))
         else:
