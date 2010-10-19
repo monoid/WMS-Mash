@@ -117,7 +117,6 @@ class WmsRelayClientFactory(ClientFactory):
         self.version = version
 
     def buildProtocol(self, addr):
-        print "addr=", addr
         return self.protocol(self.command, self.rest, self.version,
                              self.headers, self.data, self.father)
 
@@ -191,7 +190,6 @@ class WmsRelayRequest(Request):
         def reportCapabilites(data):
             if (data is None): return
 
-            print data
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
 <WMT_MS_Capabilities version="1.1.1" updateSequence="70">
@@ -295,8 +293,6 @@ class WmsRelayRequest(Request):
         try:
             parsed = urlparse.urlparse(self.uri)
             qs = Wms.wmsParseQuery(parsed[4])
-
-            print qs
 
             layerset = qs['SET'] # TODO: parse URL instead
             

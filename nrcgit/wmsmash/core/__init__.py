@@ -5,7 +5,6 @@ def parseJuliaLatLngBB(str):
     elts = str.split()
     r = {}
     for e in elts:
-        print e
         e = e.split('=')
         r[e[0]] = float(e[1])
     return r
@@ -25,7 +24,6 @@ class Layer:
     cap = None
     
     def __init__(self, dbrec, layerDict=None):
-        print len(dbrec)
         self.id = dbrec[0]
         self.name = dbrec[1]
         self.title = dbrec[2]
@@ -42,9 +40,6 @@ class Layer:
         if dbrec[10] is not None:
             self.cap = etree.XML(dbrec[10])
 
-        print "ID: %s " % self.id
-        print "Name: %s " % self.name
-        print "Parent: %s " % dbrec[7]
         self.children = []
 
         if layerDict is not None:
@@ -104,6 +99,5 @@ class Layer:
         for rec in records:
             l = Layer(rec, layerDict)
             layers.append(l)
-        print layerDict
         return (root, layers, layerDict)
             

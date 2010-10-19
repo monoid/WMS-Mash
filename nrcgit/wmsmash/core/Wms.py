@@ -20,7 +20,6 @@ def wmsParseQuery(query_str):
     for el in elements:
         keyval = el.split("=", 1)
         key = keyval[0].upper()
-        print key, key in [ "LAYERS", "STYLES", "BBOX", "QUERY_LAYERS" ]
         val = keyval[1]
         if key in [ "LAYERS", "STYLES" ]:
             params[key] = map(urllib.unquote, val.split(","))
