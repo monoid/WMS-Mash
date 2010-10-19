@@ -41,38 +41,32 @@ class GetFeatureInfo(WmsHandler):
                  'width', 'height', 'query_layers', 'info_format', \
 		 'i', 'j' ]
 
-class WmsRelayClient(HTTPClient):
+class WmsSimpleClient(HTTPClient):
     """
-    Used by ProxyClientFactory to implement a simple web proxy.
+    Very simple WMS GetMap/GetFeatureInfo query: no composing, no SLD.
 
-    @ivar _finished: A flag which indicates whether or not the original request
-        has been finished yet.
+    The class may be used for querying multiple layers if they
+    originate from single server and have not SLD.  Otherwise more
+    complex composing client has to be used.
     """
-    _finished = False
+    def __init__(self, remote, params, father):
+        parsed = urlparse.urlparse(remote)
 
-    def __init__(self, command, rest, version, headers, data, father):
         self.father = father
-        self.command = command
-        self.rest = rest
-        if "proxy-connection" in headers:
-            del headers["proxy-connection"]
-        headers["connection"] = "close"
-        headers.pop('keep-alive', None)
-        self.headers = headers
-        self.data = data
-
+        self.remote = remote
+        self.params = params
+        # TODO: this should be handled carefully
+        self.rest = parsed.path+'?'+Wms.wmsBuildQuery(params)
+        self.host = parsed.netloc.split(':')[0]
 
     def connectionMade(self):
-        self.sendCommand(self.command, self.rest)
-        for header, value in self.headers.items():
-            self.sendHeader(header, value)
+        self.sendCommand('GET', self.rest)
+        self.sendHeader('Host', self.host)
+        self.sendHeader('User-Agent', 'WMS-Mash/0-dev')
         self.endHeaders()
-        self.transport.write(self.data)
 
-
-    def handleStatus(self, version, code, message):
+    def handleStatus(self, versio, code, message):
         self.father.setResponseCode(int(code), message)
-
 
     def handleHeader(self, key, value):
         # t.web.server.Request sets default values for these headers in its
@@ -84,21 +78,12 @@ class WmsRelayClient(HTTPClient):
         else:
             self.father.responseHeaders.addRawHeader(key, value)
 
-
     def handleResponsePart(self, buffer):
         self.father.write(buffer)
-
-
+    
     def handleResponseEnd(self):
-        """
-        Finish the original request, indicating that the response has been
-        completely written to it, and disconnect the outgoing transport.
-        """
-        if not self._finished:
-            self._finished = True
-            self.father.finish()
-            self.transport.loseConnection()
-
+        self.father.finish()
+        self.transport.loseConnection()
 
 
 class WmsRelayClientFactory(ClientFactory):
@@ -106,25 +91,24 @@ class WmsRelayClientFactory(ClientFactory):
     Used by ProxyRequest to implement a simple web proxy.
     """
 
-    protocol = WmsRelayClient
-
-    def __init__(self, command, rest, version, headers, data, father):
+    # Param list will be extended, because different types of request
+    # have different arguments (complex GetMap and GetFeatureInfo have
+    # list of urls and list of layers).  You may think this is a stub
+    def __init__(self, url, params, father, proto):
+        self.url = url
+        self.params = params
         self.father = father
-        self.command = command
-        self.rest = rest
-        self.headers = headers
-        self.data = data
-        self.version = version
+        self.protocol = proto
 
     def buildProtocol(self, addr):
-        return self.protocol(self.command, self.rest, self.version,
-                             self.headers, self.data, self.father)
+        return self.protocol(self.url, self.params, self.father)
 
     def clientConnectionFailed(self, connector, reason):
         """
         Report a connection failure in a response to the incoming request as
         an error.
         """
+        # TODO: different error?
         self.father.setResponseCode(501, "Gateway error")
         self.father.responseHeaders.addRawHeader("Content-Type", "text/html")
         self.father.write("<H1>Could not connect</H1>")
@@ -280,6 +264,35 @@ class WmsRelayRequest(Request):
             self.finish()
         
         layersetData.addCallbacks(reportCapabilites, lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
+
+    def handleGetMap(self, layerset, qs):
+        layers = qs['LAYERS']
+        if len(layers) == 1:
+            layerData = DBPOOL.runQuery(
+"""SELECT layers.name, servers.url
+  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
+    LEFT JOIN layers ON layertree.layer_id = layers.id
+    LEFT JOIN servers ON layers.server_id = servers.id
+  WHERE layerset.name = %s AND layertree.name = %s LIMIT 1""",
+(qs['SET'], qs['LAYERS'][0]))
+            def getData(data):
+                # TODO: check data is not empty
+                url = data[0][1]
+                parsed = urlparse.urlparse(url)
+                rest = urlparse.urlunparse(('', '') + parsed[2:])
+                qs['LAYERS'] = data[0][0]
+                if not rest:
+                    rest = rest + '/'
+                class_ = WmsRelayClientFactory
+                host_split = parsed.netloc.split(':')
+                host = host_split[0]
+                port = 80 # TODO STUB parse, parse, parse
+                clientFactory = class_(url, qs, self, WmsSimpleClient)
+                
+                self.reactor.connectTCP(host, port, clientFactory)
+            
+            layerData.addCallback(getData)
+        
         
     def process(self):
         """ TODO: parsing request
@@ -301,7 +314,7 @@ class WmsRelayRequest(Request):
                 if reqtype == 'GETCAPABILITIES':
                     return self.handleGetCapabilities(layerset, qs)
                 elif reqtype == 'GETMAP':
-                    layers = qs['LAYERS']
+                    return self.handleGetMap(layerset, qs)
                 elif reqtype == 'GETFEATUREINFO':
                     layer = qs['LAYER']
                     req = qs.copy()
@@ -321,19 +334,19 @@ class WmsRelayRequest(Request):
 #             host, port = host.split(':')
 #             port = int(port)
         
-#         rest = urlparse.urlunparse(('', '') + parsed[2:])
-#         if not rest:
-#             rest = rest + '/'
-#         class_ = self.protocols[protocol]
-#         headers = self.getAllHeaders().copy()
-#         if 'host' not in headers:
-#             headers['host'] = host
-#         self.content.seek(0, 0)
-#         s = self.content.read()
-#         clientFactory = class_(self.method, rest, self.clientproto, headers,
-#                                s, self)
+            rest = urlparse.urlunparse(('', '') + parsed[2:])
+            if not rest:
+                rest = rest + '/'
+            class_ = self.protocols[protocol]
+            headers = self.getAllHeaders().copy()
+            if 'host' not in headers:
+                headers['host'] = host
+            self.content.seek(0, 0)
+            s = self.content.read()
+            clientFactory = class_(self.method, rest, self.clientproto, headers,
+                                   s, self)
 
-#         self.reactor.connectTCP(host, port, clientFactory)
+            self.reactor.connectTCP(host, port, clientFactory)
 
 
 class WmsRelay(HTTPChannel):
