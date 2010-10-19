@@ -230,11 +230,8 @@ class WmsRelayRequest(Request):
         <DCPType>
           <HTTP>
             <Get>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://localhost:8080/virtual?SET=Academgorodok&amp;SERVICE=WMS&amp;"/>
             </Get>
-            <Post>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
-            </Post>
           </HTTP>
         </DCPType>
       </GetCapabilities>
@@ -248,7 +245,7 @@ class WmsRelayRequest(Request):
         <DCPType>
           <HTTP>
             <Get>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://localhost:8080/virtual?SET=Academgorodok&amp;SERVICE=WMS&amp;"/>
             </Get>
           </HTTP>
         </DCPType>
@@ -259,7 +256,7 @@ class WmsRelayRequest(Request):
         <DCPType>
           <HTTP>
             <Get>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://maps.nrcgit.ru:80/geoserver/wms?SERVICE=WMS&amp;"/>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://localhost:8080/virtual?SET=Academgorodok&amp;SERVICE=WMS&amp;"/>
             </Get>
           </HTTP>
         </DCPType>
