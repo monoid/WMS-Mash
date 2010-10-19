@@ -57,19 +57,32 @@ class Layer:
         self.children.append(child)
         self.children.sort(None, Layer.getOrder)
 
+    def isGroup(self):
+        return len(self.children) > 0
+
     def dump(self, buf):
-        buf.write("<Layer>")
+        if self.cap is not None and self.cap.attrib.has_key('cascade'):
+            cascade = int(self.cap.attrib)+1
+        else:
+            cascade = 1
+        if (self.isGroup()):
+            buf.write("<Layer>")
+        else:
+            buf.write("<Layer cascade='%d'>" % cascade)
+            
         if (self.remote_name is None):
             buf.write("<Title>%s</Title>" % (self.name,))
         else:
             buf.write("<Name>%s</Name>" % (self.name,))
             if (self.title is not None):
                 buf.write("<Title>%s</Title>" % (self.title,))
+
         if (self.abstract is not None):
             buf.write("<Abstract>%s</Abstract>" % saxutils.escape(self.abstract))
         # TODO: compute common LatLngBoundingBox for groups
         if (self.latlngbb is not None):
             buf.write('<LatLonBoundingBox minx="%(minx)f" maxx="%(maxx)f" miny="%(miny)f" maxy="%(maxy)f" />' % self.latlngbb)
+
         # TODO: compute common SRS list for groups
         if (self.cap is not None):
             for srs in self.cap.xpath('/Layer/SRS'):
@@ -78,6 +91,7 @@ class Layer:
                 buf.write(etree.tostring(bb))
             for style in self.cap.xpath('/Layer/Style'):
                 buf.write(etree.tostring(style))
+
         for c in self.children:
             c.dump(buf)
         buf.write("</Layer>")
