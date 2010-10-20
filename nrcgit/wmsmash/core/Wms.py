@@ -21,7 +21,7 @@ def wmsParseQuery(query_str):
         keyval = el.split("=", 1)
         key = keyval[0].upper()
         val = keyval[1]
-        if key in [ "LAYERS", "STYLES" ]:
+        if key in [ "LAYERS", "STYLES", "BBOX" ]:
             params[key] = map(urllib.unquote, val.split(","))
         else:
             params[key] = urllib.unquote(val)
@@ -41,7 +41,9 @@ wmsBuildQuery({'QUERY':'GetMap', 'LAYERS':['owl,box','academ'], 'STYLE':['',''] 
     buf = []
 
     for key, val in params.iteritems():
-        if isinstance(val, list):
+        if key == 'SRS':
+            valstr = ':'.join(map(urllib.quote, val.split(':')))
+        elif isinstance(val, list):
             valstr = ','.join(map(urllib.quote, val))
         else:
             valstr = urllib.quote(str(val))
