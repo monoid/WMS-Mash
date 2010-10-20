@@ -55,10 +55,17 @@ class WmsSimpleClient(HTTPClient):
         self.father = father
         self.remote = remote
         self.params = params
-        # TODO: this should be handled carefully
 	del params['SET']
+        # TODO: this should be handled carefully
         self.rest = parsed.path+'?'+Wms.wmsBuildQuery(params)
         self.host = parsed.netloc.split(':')[0]
+        self._fatherFinished = False
+
+        def notifyFinishErr(e):
+            self._fatherFinished = True
+            self.transport.loseConnection()
+
+        self.father.notifyFinish().addErrback(notifyFinishErr)
 
     def connectionMade(self):
         self.sendCommand('GET', self.rest)
@@ -83,7 +90,8 @@ class WmsSimpleClient(HTTPClient):
         self.father.write(buffer)
     
     def handleResponseEnd(self):
-        self.father.finish()
+        if not self._fatherFinished:
+            self.father.finish()
         self.transport.loseConnection()
 
 
