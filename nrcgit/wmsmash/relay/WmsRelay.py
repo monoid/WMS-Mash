@@ -18,8 +18,56 @@ import cStringIO
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core
 
+###
+### Database interaction
+###
+
 DBPOOL = None # TODO Global variables are BAD!
 
+def getCapabilitiesData(set):
+    # Having a layersetData, fetch layerset
+    def gotLayersetData(lset):
+        if lset:
+            layerDataDeferred = DBPOOL.runQuery(
+"""SELECT layertree.id, layertree.name, layers.title, layers.abstract,
+          layers.name, servers.url, layertree.parent_id, layertree.parent_id,
+          layertree.ord, layers.latlngbb, layers.capabilites
+  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
+    LEFT JOIN layers ON layertree.layer_id = layers.id
+    LEFT JOIN servers ON layers.server_id = servers.id
+  WHERE layerset.name = %s ORDER BY parent_id ASC, ord ASC""", (set,))
+            # Return tuple
+            layerDataDeferred.addCallback(lambda (layers): (lset[0], layers))
+            return layerDataDeferred
+        else:
+            # Layerset does not exist, return None
+            return None
+
+    # Get layerset info: name, title, abastract, author name
+    layersetDataDeferred = DBPOOL.runQuery(
+"""SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
+""", (set,))
+    # Fetch layers in the layerset and return a tuple (layersetData, layerdata)
+    layersetDataDeferred.addCallback(gotLayersetData)
+    return layersetDataDeferred
+
+
+# TODO: handle multiple layers
+def getLayerData(set, layer):
+    """Return Deferred for information on the layer from the set
+fetched from database."""
+    layerData = DBPOOL.runQuery(
+"""SELECT layers.name, servers.url
+  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
+    LEFT JOIN layers ON layertree.layer_id = layers.id
+    LEFT JOIN servers ON layers.server_id = servers.id
+  WHERE layerset.name = %s AND layertree.name = %s LIMIT 1""", (set, layer))
+    return layerData
+    
+
+###
+### Handling requests etc
+###
 class WmsHandler:
     pass
 
@@ -158,30 +206,11 @@ class WmsRelayRequest(Request):
         self.finish()
 
     def handleGetCapabilities(self, layerset, qs):
-        def gotLayersetData(layersetData):
-            if len(layersetData) > 0:
-                layerData = DBPOOL.runQuery(
-"""SELECT layertree.id, layertree.name, layers.title, layers.abstract,
-          layers.name, servers.url, layertree.parent_id, layertree.parent_id,
-          layertree.ord, layers.latlngbb, layers.capabilites
-  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
-    LEFT JOIN layers ON layertree.layer_id = layers.id
-    LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s ORDER BY parent_id ASC, ord ASC""", (qs['SET'],))
-                layerData.addCallback(lambda (layerDat): (layersetData, layerDat))
-                return layerData
-            else:
+        def reportCapabilites(data):
+            if (data is None):
                 self.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
                 self.finish()
-                return None
-
-        layersetData = DBPOOL.runQuery(
-"""SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
-""", (qs['SET'],))
-        layersetData.addCallback(gotLayersetData)
-            
-        def reportCapabilites(data):
-            if (data is None): return
+                return
 
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
@@ -259,37 +288,25 @@ class WmsRelayRequest(Request):
             r.dump(buf)
             self.write(buf.getvalue())
             buf.close()
-#             self.write("<Layer><Title>Root layer</Title>")
-#             for (id, name, parent, layer_id) in data[1]:
-#                 if parent is None:
-#                     self.write("<Layer>")
-#                     if layer_id is None:
-#                         self.write("<Title>%s</Title>" % name)
-#                     else:
-#                         self.write("<Name>%s</Name>" % name)
-#                     self.write("</Layer>")
-#             self.write("""</Layer>""");
             self.write("""</Capability></WMT_MS_Capabilities>""")
             self.finish()
         
-        layersetData.addCallbacks(reportCapabilites, lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
+        layersetDataDeferred = getCapabilitiesData(qs['SET'])
+        layersetDataDeferred.addCallbacks(
+            reportCapabilites,
+            lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
 
     def handleGetMap(self, layerset, qs):
         layers = qs['LAYERS']
         if len(layers) == 1:
-            layerData = DBPOOL.runQuery(
-"""SELECT layers.name, servers.url
-  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
-    LEFT JOIN layers ON layertree.layer_id = layers.id
-    LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s AND layertree.name = %s LIMIT 1""",
-(qs['SET'], qs['LAYERS'][0]))
+            layerDataDeferred = getLayerData(qs['SET'], qs['LAYERS'][0])
             def getData(data):
                 # TODO: check data is not empty
-                url = data[0][1]
+                data = data[0]
+                url = data[1]
                 parsed = urlparse.urlparse(url)
                 rest = urlparse.urlunparse(('', '') + parsed[2:])
-                qs['LAYERS'] = data[0][0]
+                qs['LAYERS'] = data[0]
                 if not rest:
                     rest = rest + '/'
                 class_ = WmsRelayClientFactory
@@ -299,8 +316,7 @@ class WmsRelayRequest(Request):
                 clientFactory = class_(url, qs, self, WmsSimpleClient)
                 
                 self.reactor.connectTCP(host, port, clientFactory)
-            
-            layerData.addCallback(getData)
+            layerDataDeferred.addCallback(getData)
         
         
     def process(self):
@@ -334,29 +350,6 @@ class WmsRelayRequest(Request):
             self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
         except Exception as ex:
             self.reportWmsError("Internal error: %s %s" % (type(ex), ex), "InternalError")
-#         protocol = parsed[0]
-#         host = parsed[1]
-        # Find port used for remote connection:
-        # Use default value for protocol or explicitely defined port
-#         port = self.ports[protocol]
-#         if ':' in host:
-#             host, port = host.split(':')
-#             port = int(port)
-        
-            rest = urlparse.urlunparse(('', '') + parsed[2:])
-            if not rest:
-                rest = rest + '/'
-            class_ = self.protocols[protocol]
-            headers = self.getAllHeaders().copy()
-            if 'host' not in headers:
-                headers['host'] = host
-            self.content.seek(0, 0)
-            s = self.content.read()
-            clientFactory = class_(self.method, rest, self.clientproto, headers,
-                                   s, self)
-
-            self.reactor.connectTCP(host, port, clientFactory)
-
 
 class WmsRelay(HTTPChannel):
     """
