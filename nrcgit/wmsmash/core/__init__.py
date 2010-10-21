@@ -122,3 +122,34 @@ class Layer:
             layers.append(l)
         return (root, layers, layerDict)
             
+###
+### GetCapabilities
+###
+
+def capContactInformation(config):
+    ci = etree.Element('ContactInformation')
+
+    # ContactPersonPrimary
+    cpp = etree.SubElement(ci, 'ContactPersonPrimary')
+    etree.SubElement(cpp, 'ContactPerson').text = config['contactperson']
+    etree.SubElement(cpp, 'ContactOrganization').text = config['contactorganization']
+
+    # ContactPosition
+    etree.SubElement(ci, 'ContactPosition').text = config['contactposition']
+
+    # ContactAddress
+    ca = etree.SubElement(ci, 'ContactAddress')
+    etree.SubElement(ca, 'AddressType').text = config['addresstype']
+    etree.SubElement(ca, 'Address').text = config['address']
+    etree.SubElement(ca, 'City').text = config['city']
+    etree.SubElement(ca, 'StateOrProvince').text = config['stateorprovince']
+    etree.SubElement(ca, 'PostCode').text = config['postcode']
+    etree.SubElement(ca, 'Country').text = config['country']
+
+    # ContactVoiceTelephone, ContactFacsimileTelephone,
+    # ContactElectronicMailAddress
+    etree.SubElement(ci, 'ContactVoiceTelephone').text = config['contactvoicetelephone']
+    etree.SubElement(ci, 'ContactFacsimileTelephone').text = config['contactfacsimiletelephone']
+    etree.SubElement(ci, 'ContactElectronicMailAddress').text = config['contactelectronicmailaddress']
+
+    
