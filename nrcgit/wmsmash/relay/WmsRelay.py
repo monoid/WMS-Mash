@@ -18,6 +18,8 @@ import cStringIO
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core
 
+SERVER_AGENT = 'WMS-Mash/0-dev'
+
 ###
 ### Database interaction
 ###
@@ -113,12 +115,13 @@ class WmsSimpleClient(HTTPClient):
             self._fatherFinished = True
             self.transport.loseConnection()
 
+        self.father.setHeader('Server', SERVER_AGENT)
         self.father.notifyFinish().addErrback(notifyFinishErr)
 
     def connectionMade(self):
         self.sendCommand('GET', self.rest)
         self.sendHeader('Host', self.host)
-        self.sendHeader('User-Agent', 'WMS-Mash/0-dev')
+        self.sendHeader('User-Agent', SERVER_AGENT)
         self.endHeaders()
 
     def handleStatus(self, versio, code, message):
@@ -129,7 +132,9 @@ class WmsSimpleClient(HTTPClient):
         # 'process' method. When these headers are received from the remote
         # server, they ought to override the defaults, rather than append to
         # them.
-        if key.lower() in ['server', 'date', 'content-type']:
+        if key.lower() == 'server':
+            pass
+        elif key.lower() in ['date', 'content-type']:
             self.father.responseHeaders.setRawHeaders(key, [value])
         else:
             self.father.responseHeaders.addRawHeader(key, value)
