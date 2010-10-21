@@ -227,6 +227,7 @@ class WmsRelayRequest(Request):
     <KeywordList>
       <Keyword>WMS</Keyword>
     </KeywordList>
+    <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="%s"/>
     <ContactInformation>
       <ContactPersonPrimary>
         <ContactPerson>TODO_FROM_CONFIG</ContactPerson>
@@ -287,7 +288,9 @@ class WmsRelayRequest(Request):
         </DCPType>
       </GetFeatureInfo>
     </Request>
-""" % saxutils.escape(qs['SET']))
+""" % (saxutils.escape(qs['SET']),
+       saxutils.escape("http://localhost:8080/virtual?Set=Academgorodok"), # TODO
+       ))
             buf = cStringIO.StringIO()
             (r, lrs, ld) = nrcgit.wmsmash.core.Layer.buildTree(reversed(data[1]))
             r.dump(buf)
