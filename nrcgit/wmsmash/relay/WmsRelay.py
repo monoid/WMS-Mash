@@ -219,7 +219,7 @@ class WmsRelayRequest(Request):
 
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             self.write("""<?xml version="1.0" encoding="UTF-8"?>
-<WMT_MS_Capabilities version="1.1.1" updateSequence="70">
+<WMT_MS_Capabilities version="1.1.1">
   <Service>
     <Name>OGC:WMS</Name>
     <Title>%s</Title>
