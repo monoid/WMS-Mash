@@ -7,7 +7,23 @@ def parseJuliaLatLngBB(str):
     for e in elts:
         e = e.split('=')
         r[e[0]] = float(e[1])
-    return r
+    return BoundingBox(r)
+
+class BoundingBox:
+    bbox = None
+
+    def __init__(self, bbox=None):
+        self.bbox = bbox
+
+    def extendBy(self, bb):
+        if self.bbox:
+            bbox = bb.bbox
+            self.bbox['minx'] = min(self.bbox['minx'], bbox['minx'])
+            self.bbox['miny'] = min(self.bbox['miny'], bbox['miny'])
+            self.bbox['maxx'] = max(self.bbox['maxx'], bbox['maxx'])
+            self.bbox['maxy'] = max(self.bbox['maxy'], bbox['maxy'])
+        else:
+            self.bbox = bb.bbox.copy()
 
 class Layer:
     id = None
@@ -31,14 +47,17 @@ class Layer:
         self.keywords = dbrec[4]
         self.remote_name = dbrec[5]
         self.remote_url = dbrec[6]
-        if layerDict is not None and layerDict.has_key(dbrec[7]):
-            self.parent = layerDict[dbrec[7]]
-            self.parent.addChild(self)
         self.order = dbrec[8]
         if dbrec[9] is not None:
             self.latlngbb = parseJuliaLatLngBB(dbrec[9])
+        else:
+            self.latlngbb = BoundingBox()
         if dbrec[10] is not None:
             self.cap = etree.XML(dbrec[10])
+
+        if layerDict is not None and layerDict.has_key(dbrec[7]):
+            self.parent = layerDict[dbrec[7]]
+            self.parent.addChild(self)
 
         self.children = []
 
@@ -51,6 +70,8 @@ class Layer:
     def addChild(self, child):
         self.children.append(child)
         self.children.sort(None, Layer.getOrder)
+        if child.latlngbb.bbox:
+            self.latlngbb.extendBy(child.latlngbb)
 
     def isGroup(self):
         return len(self.children) > 0
@@ -75,8 +96,8 @@ class Layer:
         if (self.abstract is not None):
             buf.write("<Abstract>%s</Abstract>" % saxutils.escape(self.abstract))
         # TODO: compute common LatLngBoundingBox for groups
-        if (self.latlngbb is not None):
-            buf.write('<LatLonBoundingBox minx="%(minx)f" maxx="%(maxx)f" miny="%(miny)f" maxy="%(maxy)f" />' % self.latlngbb)
+        if (self.latlngbb.bbox is not None):
+            buf.write('<LatLonBoundingBox minx="%(minx)f" maxx="%(maxx)f" miny="%(miny)f" maxy="%(maxy)f" />' % self.latlngbb.bbox)
 
         # TODO: compute common SRS list for groups
         if (self.cap is not None):
