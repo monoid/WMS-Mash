@@ -20,6 +20,21 @@ import nrcgit.wmsmash.core
 
 SERVER_AGENT = 'WMS-Mash/0-dev'
 
+CONFIG = {
+    'contactperson': "Admin",
+    'contactorganization': "Admin and sons",
+    'contactposition': "CEO",
+    'addresstype': "Work",
+    'address': "Nowhere lane, 1",
+    'city': 'Novosibirsk',
+    'stateorprovince': 'Novosibirsk region',
+    'postcode': '630090',
+    'country': "Russia",
+    'contactvoicetelephone': '',
+    'contactfacsimiletelephone': '',
+    'contactelectronicmailaddress': ''
+}
+
 ###
 ### Database interaction
 ###
@@ -218,85 +233,14 @@ class WmsRelayRequest(Request):
                 return
 
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
-            self.write("""<?xml version="1.0" encoding="UTF-8"?>
-<WMT_MS_Capabilities version="1.1.1">
-  <Service>
-    <Name>OGC:WMS</Name>
-    <Title>%s</Title>
-    <Abstract>TODO_FROM_CONFIG</Abstract>
-    <KeywordList>
-      <Keyword>WMS</Keyword>
-    </KeywordList>
-    <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="%s"/>
-    <ContactInformation>
-      <ContactPersonPrimary>
-        <ContactPerson>TODO_FROM_CONFIG</ContactPerson>
-        <ContactOrganization>TODO_FROM_CONFIG</ContactOrganization>
-      </ContactPersonPrimary>
-      <ContactPosition>TODO_FROM_CONFIG</ContactPosition>
-      <ContactAddress>
-        <AddressType>TODO_FROM_CONFIG</AddressType>
-        <Address>TODO_FROM_CONFIG</Address>
-        <City>TODO FROM CONFIG</City>
-        <StateOrProvince/>
-        <PostCode>TOOD_FROM_CONFIG</PostCode>
-        <Country>TODO_FROM_CONFIG</Country>
-      </ContactAddress>
-      <ContactVoiceTelephone>TODO_FROM_CONFIG</ContactVoiceTelephone>
-      <ContactFacsimileTelephone/>
-      <ContactElectronicMailAddress>TODO_FROM_CONFIG</ContactElectronicMailAddress>
-    </ContactInformation>
-    <Fees>None</Fees>
-    <AccessConstraints>None</AccessConstraints>
-  </Service>
-  <Capability>
-    <Request>
-      <GetCapabilities>
-        <Format>application/vnd.ogc.wms_xml</Format>
-        <DCPType>
-          <HTTP>
-            <Get>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://localhost:8080/virtual?SET=Academgorodok&amp;SERVICE=WMS&amp;"/>
-            </Get>
-          </HTTP>
-        </DCPType>
-      </GetCapabilities>
-      <GetMap>
-        <Format>image/png</Format>
-        <Format>image/gif</Format>
-        <Format>image/jpeg</Format>
-        <Format>image/png8</Format>
-        <Format>image/tiff</Format>
-        <Format>image/tiff8</Format>
-        <DCPType>
-          <HTTP>
-            <Get>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://localhost:8080/virtual?SET=Academgorodok&amp;SERVICE=WMS&amp;"/>
-            </Get>
-          </HTTP>
-        </DCPType>
-      </GetMap>
-      <GetFeatureInfo>
-        <Format>text/plain</Format>
-        <Format>text/html</Format>
-        <DCPType>
-          <HTTP>
-            <Get>
-              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="http://localhost:8080/virtual?SET=Academgorodok&amp;SERVICE=WMS&amp;"/>
-            </Get>
-          </HTTP>
-        </DCPType>
-      </GetFeatureInfo>
-    </Request>
-""" % (saxutils.escape(qs['SET']),
-       saxutils.escape("http://localhost:8080/virtual?Set=Academgorodok"), # TODO
-       ))
             buf = cStringIO.StringIO()
             (r, lrs, ld) = nrcgit.wmsmash.core.Layer.buildTree(reversed(data[1]))
-            r.dump(buf)
-            self.write(buf.getvalue())
-            buf.close()
-            self.write("""</Capability></WMT_MS_Capabilities>""")
+            self.write(nrcgit.wmsmash.core.capCapabilitiesString(r, CONFIG, {
+                        'title': "Academgorodok",
+                        'abstract': "Layers for Academgorodok (Novosibirsk)",
+                        'keywords': ["Academgorodok", "ecology"],
+                        'url': 'http://localhost:8080/virtual?Set=Academgorodok&SERVICE=WMS'
+                        }))
             self.finish()
         
         layersetDataDeferred = getCapabilitiesData(qs['SET'])
