@@ -1,5 +1,6 @@
 from xml.sax import saxutils
 import urllib
+import lxml.etree as etree
 
 def wmsBoolean(val):
     """ Convert WMS boolean value to Python boolean. """
@@ -7,11 +8,9 @@ def wmsBoolean(val):
 
 def wmsErrorXmlString(errorMessage, code):
     args = ""
-    if code:
-        args += "code='%s' " % saxutils.escape(code)
-    return """<?xml version='1.0' encoding='utf-8'?>
-<ServiceExceptionReport version="1.1.1"><ServiceException %s>%s</ServiceException></ServiceExceptionReport>
-""" % (args, saxutils.escape(errorMessage))
+    ser = etree.Element('ServiceExceptionReport', version='1.1.1')
+    etree.SubElement(ser, 'ServiceException', code=code).text = errorMessage
+    return etree.tostring(ser, encoding='utf-8', xml_declaration=True)
 
 def wmsParseQuery(query_str):
     """Parse WMS HTTP query string."""
