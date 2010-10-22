@@ -309,21 +309,25 @@ class WmsRelayRequest(Request):
         if len(layers) == 1:
             layerDataDeferred = getLayerData(qs['SET'], qs['LAYERS'][0])
             def getData(data):
+                if data:
                 # TODO: check data is not empty
-                data = data[0]
-                url = data[1]
-                parsed = urlparse.urlparse(url)
-                rest = urlparse.urlunparse(('', '') + parsed[2:])
-                qs['LAYERS'] = data[0]
-                if not rest:
-                    rest = rest + '/'
-                class_ = WmsRelayClientFactory
-                host_split = parsed.netloc.split(':')
-                host = host_split[0]
-                port = 80 # TODO STUB parse, parse, parse
-                clientFactory = class_(url, qs, self, WmsSimpleClient)
+                    data = data[0]
+                    url = data[1]
+                    parsed = urlparse.urlparse(url)
+                    rest = urlparse.urlunparse(('', '') + parsed[2:])
+                    qs['LAYERS'] = data[0]
+                    if not rest:
+                        rest = rest + '/'
+                    class_ = WmsRelayClientFactory
+                    host_split = parsed.netloc.split(':')
+                    host = host_split[0]
+                    port = 80 # TODO STUB parse, parse, parse
+                    clientFactory = class_(url, qs, self, WmsSimpleClient)
                 
-                self.reactor.connectTCP(host, port, clientFactory)
+                    self.reactor.connectTCP(host, port, clientFactory)
+                else:
+                    self.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
+                                        "LayerNotDefined")
             layerDataDeferred.addCallback(getData)
         
         
