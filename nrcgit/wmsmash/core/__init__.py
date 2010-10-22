@@ -25,6 +25,8 @@ class BoundingBox:
         else:
             self.bbox = bb.bbox.copy()
 
+NSMAP = { 'xlink': 'http://www.w3.org/1999/xlink' }
+
 class Layer:
     id = None
     name = None
@@ -194,7 +196,7 @@ def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
         node = sub(req, name)
         for format in formats:
             sub(node, 'Format').text = format
-        onlr = etree.Element('OnlineResource')
+        onlr = etree.Element('OnlineResource', nsmap=NSMAP)
         onlr.set('{http://www.w3.org/1999/xlink}type', 'simple')
         onlr.set('{http://www.w3.org/1999/xlink}href', url+"&") # TODO
         sub(sub(sub(node, 'DCPType'), 'HTTP'), 'Get').append(onlr)
@@ -223,13 +225,13 @@ def capCapabilitiesString(layers, config, lset_cfg, version='1.1.1'):
     for kw in lset_cfg['keywords']:
         etree.SubElement(kwl, 'Keyword').text = kw
 
-    onlr = etree.SubElement(service, 'OnlineResource')
+    onlr = etree.SubElement(service, 'OnlineResource', nsmap=NSMAP)
     onlr.set('{http://www.w3.org/1999/xlink}type', 'simple')
     onlr.set('{http://www.w3.org/1999/xlink}href', lset_cfg['url'])
 
     service.append(capContactInformation(config))
 
-    etree.SubElement(service, 'Fee').text = 'none'
+    etree.SubElement(service, 'Fees').text = 'none'
 
     # TODO: 'authentication' for restricted sets?
     etree.SubElement(service, 'AccessConstraints').text = 'none'
