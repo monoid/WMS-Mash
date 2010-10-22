@@ -100,6 +100,15 @@ class Layer:
         return len(self.children) > 0
 
     def dump(self):
+        if (self.remote_url):
+            cascade = 0
+            if 'cascade' in self.cap.attrib:
+                try:
+                    cascade = int(self.cap.attrib['cascade'])
+                except ValueError:
+                    pass
+            self.cap.attrib['cascade'] = str(cascade + 1)
+
         if self.remote_name is None:
             etree.SubElement(self.cap, 'Title').text = self.name
         else:
