@@ -28,7 +28,8 @@ create table layers (
        latlngbb text,
        capabilites text,
        pub boolean not null,
-       parent_id integer references layers(id)
+       parent_id integer references layers(id),
+       available boolean not null default true
 );
 
 create unique index layers_server_id_name_uniq on layers(server_id, name);
@@ -50,7 +51,8 @@ create table layertree (
        layer_id integer references layers(id),
        parent_id integer references layertree(id),
        lset_id integer references layerset(id),
-       ord integer not null
+       ord integer not null,
+       hidden boolean not null
 );
 
 CREATE UNIQUE INDEX layertree_order_uniq ON layertree (parent_id, lset_id, ord);

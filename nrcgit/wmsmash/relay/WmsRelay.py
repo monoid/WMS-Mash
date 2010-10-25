@@ -52,7 +52,8 @@ def getCapabilitiesData(set):
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s ORDER BY parent_id ASC, ord ASC""", (set,))
+  WHERE layerset.name = %s AND NOT layertree.hidden AND layers.available
+ORDER BY parent_id ASC, ord ASC""", (set,))
             # Return tuple
             layerDataDeferred.addCallback(lambda (layers): (lset[0], layers))
             return layerDataDeferred
