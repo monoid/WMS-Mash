@@ -16,7 +16,7 @@ from txpostgres import txpostgres
 import cStringIO
 
 from nrcgit.wmsmash.core import Wms
-import nrcgit.wmsmash.core
+import nrcgit.wmsmash.core as core
 
 SERVER_AGENT = 'WMS-Mash/0-dev'
 
@@ -234,8 +234,8 @@ class WmsRelayRequest(Request):
 
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             buf = cStringIO.StringIO()
-            (r, lrs, ld) = nrcgit.wmsmash.core.Layer.buildTree(reversed(data[1]))
-            self.write(nrcgit.wmsmash.core.capCapabilitiesString(r, CONFIG, {
+            (r, lrs, ld) = core.Layer.buildTree(reversed(data[1]), qs['SET'])
+            self.write(core.capCapabilitiesString(r, CONFIG, {
                         'title': "Academgorodok",
                         'abstract': "Layers for Academgorodok (Novosibirsk)",
                         'keywords': ["Academgorodok", "ecology"],

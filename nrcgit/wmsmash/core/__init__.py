@@ -123,10 +123,12 @@ class Layer:
         return self.cap
 
     @staticmethod
-    def buildTree(records):
+    def buildTree(records, root_title='Root'):
         layerDict = {}
         layers = []
-        root = Layer((None, 'Root', '', '', [], '', '', None, 0, None, None), layerDict)
+        root = Layer((None, root_title, '', '', [], '', '', None,
+                      0, None, None),
+                     layerDict)
         for rec in records:
             l = Layer(rec, layerDict)
             layers.append(l)
