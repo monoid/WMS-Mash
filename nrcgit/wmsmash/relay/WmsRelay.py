@@ -14,6 +14,7 @@ from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
 
 from txpostgres import txpostgres
 import cStringIO
+import base64
 
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core as core
@@ -75,7 +76,7 @@ def getLayerData(set, layer):
     """Return Deferred for information on the layer from the set
 fetched from database."""
     layerData = DBPOOL.runQuery(
-"""SELECT layers.name, servers.url
+"""SELECT layers.name, servers.url, servers.id, servers.login, servers.passwd
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
@@ -115,7 +116,7 @@ class WmsSimpleClient(HTTPClient):
     originate from single server and have not SLD.  Otherwise more
     complex composing client has to be used.
     """
-    def __init__(self, remote, params, father):
+    def __init__(self, remote, params, father, login=None, password=None):
         parsed = urlparse.urlparse(remote)
 
         self.father = father
@@ -126,6 +127,8 @@ class WmsSimpleClient(HTTPClient):
         self.rest = parsed.path+'?'+Wms.wmsBuildQuery(params)
         self.host = parsed.netloc.split(':')[0]
         self._fatherFinished = False
+        self.login = login
+        self.password = password
 
         def notifyFinishErr(e):
             self._fatherFinished = True
@@ -138,10 +141,18 @@ class WmsSimpleClient(HTTPClient):
         self.sendCommand('GET', self.rest)
         self.sendHeader('Host', self.host)
         self.sendHeader('User-Agent', SERVER_AGENT)
+        if self.login and self.password:
+            b64str = base64.encodestring(self.user+':'+self.password)[:-1]
+            self.sendHeader('Authorization', 'Basic ' + b64str)
         self.endHeaders()
 
     def handleStatus(self, versio, code, message):
-        self.father.setResponseCode(int(code), message)
+        code = int(code)
+        if code == 401:
+            self.father.setResponseCode(403, "Remote access denied.")
+        else:
+            self.father.setResponseCode(code, message)
+            
 
     def handleHeader(self, key, value):
         # t.web.server.Request sets default values for these headers in its
@@ -172,14 +183,15 @@ class WmsRelayClientFactory(ClientFactory):
     # Param list will be extended, because different types of request
     # have different arguments (complex GetMap and GetFeatureInfo have
     # list of urls and list of layers).  You may think this is a stub
-    def __init__(self, url, params, father, proto):
+    def __init__(self, url, params, father, proto, data):
         self.url = url
         self.params = params
         self.father = father
         self.protocol = proto
+        self.data = data
 
     def buildProtocol(self, addr):
-        return self.protocol(self.url, self.params, self.father)
+        return self.protocol(self.url, self.params, self.father, login=self.data[3], password=self.data[4])
 
     def clientConnectionFailed(self, connector, reason):
         """
@@ -199,9 +211,6 @@ class WmsRelayRequest(Request):
     @ivar reactor: the reactor used to create connections.
     @type reactor: object providing L{twisted.internet.interfaces.IReactorTCP}
     """
-
-    protocols = {'http': WmsRelayClientFactory}
-    ports = {'http': 80}
 
     def __init__(self, channel, queued, reactor=reactor):
         Request.__init__(self, channel, queued)
@@ -263,11 +272,10 @@ class WmsRelayRequest(Request):
                     qs['LAYERS'] = data[0]
                     if not rest:
                         rest = rest + '/'
-                    class_ = WmsRelayClientFactory
                     host_split = parsed.netloc.split(':')
                     host = host_split[0]
                     port = 80 # TODO STUB parse, parse, parse
-                    clientFactory = class_(url, qs, self, WmsSimpleClient)
+                    clientFactory = WmsRelayClientFactory(url, qs, self, WmsSimpleClient, data)
                 
                     self.reactor.connectTCP(host, port, clientFactory)
                 else:
