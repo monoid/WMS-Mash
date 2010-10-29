@@ -247,9 +247,10 @@ class WmsRelayRequest(Request):
                 self.finish()
                 return
 
+            desc, layers = data
             self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
             buf = cStringIO.StringIO()
-            (r, lrs, ld) = core.Layer.buildTree(reversed(data[1]), qs['SET'])
+            (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
             self.write(core.capCapabilitiesString(r, CONFIG, {
                         'title': "Academgorodok",
                         'abstract': "Layers for Academgorodok (Novosibirsk)",
