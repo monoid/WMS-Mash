@@ -42,7 +42,12 @@ CONFIG = {
 
 DBPOOL = None # TODO Global variables are BAD!
 
-def getCapabilitiesData(set):
+def getCapabilitiesData(set_name):
+    """This function returns a Deferred that that returns data for
+layerset's capabilities.  Data is a two-element tuple, first element
+describes layerset, second one is a list of layers.
+
+If layerset does not exists, None is returned."""
     # Having a layersetData, fetch layerset
     def gotLayersetData(lset):
         if lset:
@@ -54,7 +59,7 @@ def getCapabilitiesData(set):
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
   WHERE layerset.name = %s AND NOT layertree.hidden AND layers.available
-ORDER BY parent_id ASC, ord ASC""", (set,))
+ORDER BY parent_id ASC, ord ASC""", (set_name,))
             # Return tuple
             layerDataDeferred.addCallback(lambda (layers): (lset[0], layers))
             return layerDataDeferred
@@ -65,7 +70,7 @@ ORDER BY parent_id ASC, ord ASC""", (set,))
     # Get layerset info: name, title, abastract, author name
     layersetDataDeferred = DBPOOL.runQuery(
 """SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
-""", (set,))
+""", (set_name,))
     # Fetch layers in the layerset and return a tuple (layersetData, layerdata)
     layersetDataDeferred.addCallback(gotLayersetData)
     return layersetDataDeferred
