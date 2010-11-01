@@ -41,28 +41,29 @@ class Layer:
     latlngbb = None
     cap = None
     
-    def __init__(self, dbrec, layerDict=None):
-        self.id = dbrec[0]
-        self.name = unicode(dbrec[1] or '', 'utf-8') or None
-        self.title = unicode(dbrec[2] or '', 'utf-8') or None
-        self.abstract = unicode(dbrec[3] or '', 'utf-8')
-        self.keywords = map(lambda s: unicode(s, 'utf-8'), dbrec[4] or [])
-        self.remote_name = unicode(dbrec[5] or '', 'utf-8') or None
-        self.remote_url = dbrec[6]
-        self.order = dbrec[8]
-        if dbrec[9] is not None:
-            self.latlngbb = parseJuliaLatLngBB(dbrec[9])
+    def __init__(self, id, name, title, abstract, keywords, remote_name,
+                 remote_url, parent, order, latlngbb, cap, layerDict=None):
+        self.id = id
+        self.name = unicode(name or '', 'utf-8') or None
+        self.title = unicode(title or '', 'utf-8') or None
+        self.abstract = unicode(abstract or '', 'utf-8')
+        self.keywords = map(lambda s: unicode(s, 'utf-8'), keywords or [])
+        self.remote_name = unicode(remote_name or '', 'utf-8') or None
+        self.remote_url = remote_url
+        self.order = order
+        if latlngbb is not None:
+            self.latlngbb = parseJuliaLatLngBB(latlngbb)
         else:
             self.latlngbb = BoundingBox()
-        if dbrec[10] is not None:
-            self.cap = etree.XML(dbrec[10])
+        if cap is not None:
+            self.cap = etree.XML(cap)
         else:
             self.cap = etree.Element("Layer")
 
         self.cleanCap()
 
-        if layerDict is not None and dbrec[7] in layerDict:
-            self.parent = layerDict[dbrec[7]]
+        if layerDict is not None and parent in layerDict:
+            self.parent = layerDict[parent]
             self.parent.addChild(self)
 
         self.children = []
@@ -126,11 +127,12 @@ class Layer:
     def buildTree(records, root_title='Root'):
         layerDict = {}
         layers = []
-        root = Layer((None, root_title, '', '', [], '', '', None,
-                      0, None, None),
-                     layerDict)
+        ldParam = {'layerDict':layerDict}
+        root = Layer(None, root_title, '', '', [], '', '', None,
+                     0, None, None,
+                     layerDict=layerDict)
         for rec in records:
-            l = Layer(rec, layerDict)
+            l = Layer(*rec, **ldParam)
             layers.append(l)
         return (root, layers, layerDict)
             
