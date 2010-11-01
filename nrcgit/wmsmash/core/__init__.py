@@ -61,7 +61,7 @@ class Layer:
 
         self.cleanCap()
 
-        if layerDict is not None and layerDict.has_key(dbrec[7]):
+        if layerDict is not None and dbrec[7] in layerDict:
             self.parent = layerDict[dbrec[7]]
             self.parent.addChild(self)
 

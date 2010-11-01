@@ -222,14 +222,14 @@ class WmsRelayRequest(Request):
         self.reactor = reactor
 
     def ensureWms(self, params):
-        if (not params.has_key('SERVICE') or params['SERVICE'] != 'WMS'):
+        if ('SERVICE' not in params or params['SERVICE'] != 'WMS'):
             return False
-	if (not params.has_key('REQUEST')):
+	if ('REQUEST' not in params):
 	    return False
         # 1. Version number negotiation
         # 2. VERSION parameter is mandatory in requests other 
         #    than GetCapabilities
-#         if (not params.has_key('VERSION') or params['VERSION'][0:2] != '1.'):
+#         if ('VERSION' not in params or params['VERSION'][0:2] != '1.'):
 #             return False
         return True
 
