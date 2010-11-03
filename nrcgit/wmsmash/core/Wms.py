@@ -21,7 +21,12 @@ def wmsParseQuery(query_str):
         key = keyval[0].upper()
         val = keyval[1]
         if key in [ "LAYERS", "STYLES", "BBOX" ]:
-            params[key] = map(urllib.unquote, val.split(","))
+            # HOLY CRAP, QGIS encodes parameters incorrectly
+            # 5a1102986a2dcaef6326 was a waste of time.
+            # Nobody obeys standards.
+            # (See OGC 01-068r3, section 6.2.1, page 11).
+            #params[key] = map(urllib.unquote, val.split(","))
+            params[key] = urllib.unquote(val).split(",")
         else:
             params[key] = urllib.unquote(val)
         
