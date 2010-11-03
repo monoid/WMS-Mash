@@ -16,6 +16,8 @@ from txpostgres import txpostgres
 import cStringIO
 import base64
 
+from PIL import Image
+
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core as core
 
@@ -77,15 +79,14 @@ ORDER BY parent_id ASC, ord ASC""", (set_name,))
 
 
 # TODO: handle multiple layers
-def getLayerData(set, layer):
-    """Return Deferred for information on the layer from the set
-fetched from database."""
+def getLayerData(set, layers):
+    """Return Deferred for layers' information fetched from database."""
     layerData = DBPOOL.runQuery(
 """SELECT layers.name, servers.url, servers.id, servers.login, servers.passwd
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s AND layertree.name = %s LIMIT 1""", (set, layer))
+  WHERE layerset.name = %s AND layertree.name = ANY(%s)""", (set, layers))
     return layerData
     
 
@@ -266,11 +267,10 @@ class WmsRelayRequest(Request):
 
     def handleGetMap(self, layerset, qs):
         layers = qs['LAYERS']
-        if len(layers) == 1:
-            layerDataDeferred = getLayerData(qs['SET'], qs['LAYERS'][0])
-            def getData(data):
+        if len(layers) >= 1:
+            layerDataDeferred = getLayerData(qs['SET'], qs['LAYERS'])
+            def getSingleData(data):
                 if data:
-                # TODO: check data is not empty
                     data = data[0]
                     url = data[1]
                     parsed = urlparse.urlparse(url)
@@ -287,7 +287,41 @@ class WmsRelayRequest(Request):
                 else:
                     self.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
                                         "LayerNotDefined")
-            layerDataDeferred.addCallback(getData)
+            def getMultipleData(data):
+                layer_dict = {}
+                # Fill dict with data
+                for d in data:
+                    lset[d[0]] = d
+                # Check if all layers are available
+                for name in layers:
+                    if name not in lset:
+                        self.reportWmsError("Layer %s not found." % name,
+                                            "LayerNotDefined")
+                        return
+
+                width = int(qs['WIDTH'])
+                height = int(qs['HEIGHT'])
+
+                if width > MAX_IMG_SIZE or height > MAX_IMG_SIZE:
+                    self.reportWmsError("Requested image too large (max %d)" % MAX_IMG_SIZE,
+                                        "ImageTooLarge")
+                    return
+
+                image = Image.new("RGB", (width, height))
+                first = True
+
+                # This loop have to be made asynchronous
+                for name in layers:
+                    params = qs.clone()
+                    if not first:
+                        params['TRANSPARENT'] = 'TRUE'
+                    first = False
+                    params['LAYERS'] = [layer_dict[name][0]]
+
+            if len(layers) == 1:
+                layerDataDeferred.addCallback(getSingleData)
+            else:
+                layerDataDeferred.addCallback(getMultipleData)
         
         
     def process(self):

@@ -121,6 +121,8 @@ class Layer:
             bb.attrib[key] = str(val)
         for c in self.children:
             self.cap.append(c.dump())
+        # DEBUG: add common SRS before we compute list of SRS correctly
+        etree.SubElement(self.cap, 'SRS').text = 'EPSG:4326'
         return self.cap
 
     @staticmethod
