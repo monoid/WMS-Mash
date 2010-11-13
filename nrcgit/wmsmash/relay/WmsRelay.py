@@ -9,7 +9,6 @@ from xml.sax import saxutils
 from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
 from twisted.web.resource import Resource
-from twisted.web.server import NOT_DONE_YET
 from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
 
 from txpostgres import txpostgres
@@ -89,30 +88,6 @@ def getLayerData(set, layers):
   WHERE layerset.name = %s AND layertree.name = ANY(%s)""", (set, layers))
     return layerData
     
-
-###
-### Handling requests etc
-###
-class WmsHandler:
-    pass
-
-class GetCapabilitiesHandler(WmsHandler):
-    FORMATS = [ 'text/xml' ]
-    # Common required params like SERVICE and REQUEST are checked separately
-    REQUIRED = []
-
-class GetDataHandler(WmsHandler):
-    FORMATS = [ 'image/png', 'image/png8', 'image/gif', 'image/jpeg', \
-                'image/tiff', 'image/tiff8' ]
-    REQUIRED = [ 'version', 'layers', 'styles', 'crs', 'bbox', \
-                 'width', 'height', 'format' ]
-
-class GetFeatureInfo(WmsHandler):
-    # These are formats that can be concatenated
-    FORMATS = [ 'text/xml', 'text/plain' ]
-    REQUIRED = [ 'version', 'layers', 'styles', 'crs', 'bbox', \
-                 'width', 'height', 'query_layers', 'info_format', \
-		 'i', 'j' ]
 
 class WmsSimpleClient(HTTPClient):
     """
