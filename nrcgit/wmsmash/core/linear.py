@@ -1,29 +1,24 @@
 from twisted.internet.defer import Deferred
-from collections import deque
 
 class LinearDeferred(Deferred):
     actions = None
-    func = None
+    gen = None
     data = None
-    index = 0
 
-    def __init__(self, initial, actions, func):
-        self.actions = deque(actions)
-        self.func = func
+    def __init__(self, initial, generator):
+        self.gen = gen
         self.data = initial
 
         self._goToNext()
         
     def _goToNext(self):
         """Do next action."""
-        if self.actions:
-            next_elt = self.actions.popleft()
-            deferred = self.func(next_elt, self.index)
-            self.index += 1
+        try:
+            deferred = self.gen.next()
             deferred.addCallbacks(self._handler, self._handler,
                                   callbackArgs=(next_elt, 1),
                                   errbackArgs=(next_elt, 0))
-        else:
+        except StopIteration:
             self.callback(self.data)
 
     def _handler(self, data, elt, status):
