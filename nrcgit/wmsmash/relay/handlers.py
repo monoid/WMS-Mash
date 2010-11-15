@@ -27,13 +27,6 @@ class WmsQuery:
     def run(self):
         pass
 
-    def reportWmsError(self, errorMessage, code):
-        xml = Wms.wmsErrorXmlString(errorMessage, code)
-        self.parent.setHeader('Content-type', 'application/vnd.ogc.se_xml')
-        self.parent.setHeader('Length', str(len(xml)))
-        self.parent.write(xml)
-        self.parent.finish()
-
 
 class GetCapabilities(WmsQuery):
     FORMATS = [ 'text/xml' ]
@@ -87,8 +80,8 @@ class GetMap(WmsQuery):
                 
                     reactor.connectTCP(host, port, clientFactory)
                 else:
-                    self.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
-                                        "LayerNotDefined")
+                    self.parent.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
+                                               "LayerNotDefined")
             def getMultipleData(data):
                 layer_dict = {}
                 # Fill dict with data
