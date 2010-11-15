@@ -19,6 +19,8 @@ from PIL import Image
 
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core as core
+import nrcgit.wmsmash.relay as relay
+import nrcgit.wmsmash.relay.handlers as handlers
 
 SERVER_AGENT = 'WMS-Mash/0-dev'
 
@@ -37,57 +39,6 @@ CONFIG = {
     'contactelectronicmailaddress': ''
 }
 
-###
-### Database interaction
-###
-
-DBPOOL = None # TODO Global variables are BAD!
-
-def getCapabilitiesData(set_name):
-    """This function returns a Deferred that that returns data for
-layerset's capabilities.  Data is a two-element tuple, first element
-describes layerset, second one is a list of layers.
-
-If layerset does not exists, None is returned."""
-    # Having a layersetData, fetch layerset
-    def gotLayersetData(lset):
-        if lset:
-            layerDataDeferred = DBPOOL.runQuery(
-"""SELECT layertree.id, layertree.name, layers.title, layers.abstract,
-          layers.name, servers.url, layertree.parent_id, layertree.parent_id,
-          layertree.ord, layers.latlngbb, layers.capabilites
-  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
-    LEFT JOIN layers ON layertree.layer_id = layers.id
-    LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s AND NOT layertree.hidden AND layers.available
-ORDER BY parent_id ASC, ord ASC""", (set_name,))
-            # Return tuple
-            layerDataDeferred.addCallback(lambda (layers): (lset[0], layers))
-            return layerDataDeferred
-        else:
-            # Layerset does not exist, return None
-            return None
-
-    # Get layerset info: name, title, abastract, author name
-    layersetDataDeferred = DBPOOL.runQuery(
-"""SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
-""", (set_name,))
-    # Fetch layers in the layerset and return a tuple (layersetData, layerdata)
-    layersetDataDeferred.addCallback(gotLayersetData)
-    return layersetDataDeferred
-
-
-# TODO: handle multiple layers
-def getLayerData(set, layers):
-    """Return Deferred for layers' information fetched from database."""
-    layerData = DBPOOL.runQuery(
-"""SELECT layers.name, servers.url, servers.id, servers.login, servers.passwd
-  FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
-    LEFT JOIN layers ON layertree.layer_id = layers.id
-    LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s AND layertree.name = ANY(%s)""", (set, layers))
-    return layerData
-    
 
 class WmsSimpleClient(HTTPClient):
     """
@@ -235,69 +186,13 @@ class WmsRelayRequest(Request):
                         }))
             self.finish()
         
-        layersetDataDeferred = getCapabilitiesData(qs['SET'])
+        layersetDataDeferred = relay.getCapabilitiesData(qs['SET'])
         layersetDataDeferred.addCallbacks(
             reportCapabilites,
             lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
 
     def handleGetMap(self, layerset, qs):
-        layers = qs['LAYERS']
-        if len(layers) >= 1:
-            layerDataDeferred = getLayerData(qs['SET'], qs['LAYERS'])
-            def getSingleData(data):
-                if data:
-                    data = data[0]
-                    url = data[1]
-                    parsed = urlparse.urlparse(url)
-                    rest = urlparse.urlunparse(('', '') + parsed[2:])
-                    qs['LAYERS'] = data[0]
-                    if not rest:
-                        rest = rest + '/'
-                    host_split = parsed.netloc.split(':')
-                    host = host_split[0]
-                    port = 80 # TODO STUB parse, parse, parse
-                    clientFactory = WmsRelayClientFactory(url, qs, self, WmsSimpleClient, data)
-                
-                    self.reactor.connectTCP(host, port, clientFactory)
-                else:
-                    self.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
-                                        "LayerNotDefined")
-            def getMultipleData(data):
-                layer_dict = {}
-                # Fill dict with data
-                for d in data:
-                    lset[d[0]] = d
-                # Check if all layers are available
-                for name in layers:
-                    if name not in lset:
-                        self.reportWmsError("Layer %s not found." % name,
-                                            "LayerNotDefined")
-                        return
-
-                width = int(qs['WIDTH'])
-                height = int(qs['HEIGHT'])
-
-                if width > MAX_IMG_SIZE or height > MAX_IMG_SIZE:
-                    self.reportWmsError("Requested image too large (max %d)" % MAX_IMG_SIZE,
-                                        "ImageTooLarge")
-                    return
-
-                image = Image.new("RGB", (width, height))
-                first = True
-
-                # This loop have to be made asynchronous
-                for name in layers:
-                    params = qs.clone()
-                    if not first:
-                        params['TRANSPARENT'] = 'TRUE'
-                    first = False
-                    params['LAYERS'] = [layer_dict[name][0]]
-
-            if len(layers) == 1:
-                layerDataDeferred.addCallback(getSingleData)
-            else:
-                layerDataDeferred.addCallback(getMultipleData)
-        
+        handlers.GetMap(self, qs).run()
         
     def process(self):
         """ TODO: parsing request
