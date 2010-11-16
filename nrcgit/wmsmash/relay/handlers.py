@@ -1,4 +1,6 @@
 import urlparse
+import cStringIO
+import base64
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
@@ -36,6 +38,32 @@ class GetCapabilities(WmsQuery):
     def __init__(self, parent, query):
         WmsQuery.__init__(self, parent, query)
 
+    def run(self):
+        qs = self.query
+        layerset = qs['SET'] # TODO: parse URL instead
+        def reportCapabilites(data):
+            if (data is None):
+                self.parent.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
+                self.parent.finish()
+                return
+
+            desc, layers = data
+            self.parent.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
+            buf = cStringIO.StringIO()
+            (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
+            self.parent.write(core.capCapabilitiesString(r, relay.CONFIG, {
+                        'title': "Academgorodok",
+                        'abstract': "Layers for Academgorodok (Novosibirsk)",
+                        'keywords': ["Academgorodok", "ecology"],
+                        'url': 'http://localhost:8080/virtual?Set=Academgorodok&SERVICE=WMS'
+                        }))
+            self.parent.finish()
+        
+        layersetDataDeferred = relay.getCapabilitiesData(qs['SET'])
+        layersetDataDeferred.addCallbacks(
+            reportCapabilites,
+            lambda x: self.parent.reportWmsError("DB error"+str(x), "DbError"))
+        
 
 class GetFeatureInfo(WmsQuery):
     # These are formats that can be concatenated
@@ -145,11 +173,6 @@ class GetMapClientFactory(ClientFactory):
         self.password = self.data[4]
         print data
         self.remote = data[1]
-
-#     def buildProtocol(self, addr):
-#         proto = self.protocol()
-#         #proto.factory = self
-#         return proto
 
     def clientConnectionFailed(self, connector, reason):
         """

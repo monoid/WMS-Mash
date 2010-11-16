@@ -4,18 +4,10 @@ WMS proxy.  Kind of.
 
 """
 import urlparse
-from xml.sax import saxutils
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
-from twisted.web.resource import Resource
-from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
-
-from txpostgres import txpostgres
-import cStringIO
-import base64
-
-from PIL import Image
+from twisted.web.http import Request, HTTPChannel, HTTPFactory
 
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core as core
@@ -24,20 +16,6 @@ import nrcgit.wmsmash.relay.handlers as handlers
 
 SERVER_AGENT = 'WMS-Mash/0-dev'
 
-CONFIG = {
-    'contactperson': "Admin",
-    'contactorganization': "Admin and sons",
-    'contactposition': "CEO",
-    'addresstype': "Work",
-    'address': "Nowhere lane, 1",
-    'city': 'Novosibirsk',
-    'stateorprovince': 'Novosibirsk region',
-    'postcode': '630090',
-    'country': "Russia",
-    'contactvoicetelephone': '',
-    'contactfacsimiletelephone': '',
-    'contactelectronicmailaddress': ''
-}
 
 class WmsRelayRequest(Request):
     """
@@ -70,31 +48,10 @@ class WmsRelayRequest(Request):
         self.write(xml)
         self.finish()
 
-    def handleGetCapabilities(self, layerset, qs):
-        def reportCapabilites(data):
-            if (data is None):
-                self.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
-                self.finish()
-                return
+    def handleGetCapabilities(self, qs):
+        handlers.GetCapabilities(self, qs).run()
 
-            desc, layers = data
-            self.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
-            buf = cStringIO.StringIO()
-            (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
-            self.write(core.capCapabilitiesString(r, CONFIG, {
-                        'title': "Academgorodok",
-                        'abstract': "Layers for Academgorodok (Novosibirsk)",
-                        'keywords': ["Academgorodok", "ecology"],
-                        'url': 'http://localhost:8080/virtual?Set=Academgorodok&SERVICE=WMS'
-                        }))
-            self.finish()
-        
-        layersetDataDeferred = relay.getCapabilitiesData(qs['SET'])
-        layersetDataDeferred.addCallbacks(
-            reportCapabilites,
-            lambda x: self.reportWmsError("DB error"+str(x), "DbError"))
-
-    def handleGetMap(self, layerset, qs):
+    def handleGetMap(self, qs):
         handlers.GetMap(self, qs).run()
         
     def process(self):
@@ -115,9 +72,9 @@ class WmsRelayRequest(Request):
             if self.ensureWms(qs):
                 reqtype = qs['REQUEST'].upper()
                 if reqtype == 'GETCAPABILITIES':
-                    return self.handleGetCapabilities(layerset, qs)
+                    return self.handleGetCapabilities(qs)
                 elif reqtype == 'GETMAP':
-                    return self.handleGetMap(layerset, qs)
+                    return self.handleGetMap(qs)
                 elif reqtype == 'GETFEATUREINFO':
                     layer = qs['LAYER']
                     req = qs.copy()
