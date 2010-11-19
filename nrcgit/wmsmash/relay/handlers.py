@@ -29,7 +29,9 @@ class WmsQuery:
     def run(self):
         pass
 
-
+##
+## GetCapabilities
+##
 class GetCapabilities(WmsQuery):
     FORMATS = [ 'text/xml' ]
     # Common required params like SERVICE and REQUEST are checked separately
@@ -64,52 +66,47 @@ class GetCapabilities(WmsQuery):
             reportCapabilites,
             lambda x: self.parent.reportWmsError("DB error"+str(x), "DbError"))
         
-
-class GetFeatureInfo(WmsQuery):
-    # These are formats that can be concatenated
-    # TODO: GML too?
-    FORMATS = [ 'text/xml', 'text/plain' ]
-
-    REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
-                 'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
-		 'I', 'J' ]
-    
-    def __init__(self, parent, query):
-        WmsQuery.__init__(self, parent, query)
+##
+## GetFeatureInfo
+##
 
 
-class GetMap(WmsQuery):
-    FORMATS = [ 'image/png', 'image/png8', 'image/gif', 'image/jpeg', \
-                'image/tiff', 'image/tiff8' ]
-    REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
-                 'WIDTH', 'HEIGHT', 'FORMAT' ]
+class RemoteDataRequest(WmsQuery):
+    """Request that fetches data from remote servers, e.g. GetCapabilities
+and GetMap.  If single layer is queried or multiple layers from same servers
+(not implemented yet), data is just transmitted to client.
+
+If multiple servers are queried, data is fetched from all servers and 
+then combined.  In this case, methoid init is called, and then all elements
+are combined with combine method sequentially.  If single server is used,
+init and combine are not called.
+"""
+    layers = None
 
     def __init__(self, parent, query):
         WmsQuery.__init__(self, parent, query)
+
+    def connectRemoteUrl(self, data, qs, layers, clientFactoryClass, clientClass):
+        url = data[1]
+        parsed = urlparse.urlparse(url)
+        rest = urlparse.urlunparse(('', '') + parsed[2:])
+        qs['LAYERS'] = ','.join(layers)
+        if not rest:
+            rest = '/'
+        host_split = parsed.netloc.split(':')
+        host = host_split[0]
+        port = (host_split[1] and int(host_split[1])) or 80 # TODO: https
+        clientFactory = clientFactoryClass(url, qs, self.parent, clientClass, data)
+        reactor.connectTCP(host, port, clientFactory)
+        return clientFactory
 
     def run(self):
         layers = self.query['LAYERS']
         qs = self.query
         if layers:
-            layerDataDeferred = relay.getLayerData(qs['SET'], qs['LAYERS'])
+            layerDataDeferred = relay.getLayerData(qs['SET'], layers)
             def getSingleData(data):
-                if data:
-                    data = data[0]
-                    url = data[1]
-                    parsed = urlparse.urlparse(url)
-                    rest = urlparse.urlunparse(('', '') + parsed[2:])
-                    qs['LAYERS'] = data[0]
-                    if not rest:
-                        rest = rest + '/'
-                    host_split = parsed.netloc.split(':')
-                    host = host_split[0]
-                    port = 80 # TODO STUB parse, parse, parse
-                    clientFactory = GetMapClientFactory(url, qs, self.parent, GetMapClient, data)
-                
-                    reactor.connectTCP(host, port, clientFactory)
-                else:
-                    self.parent.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
-                                               "LayerNotDefined")
+                pass
             def getMultipleData(data):
                 layer_dict = {}
                 # Fill dict with data
@@ -142,9 +139,64 @@ class GetMap(WmsQuery):
                     params['LAYERS'] = [layer_dict[name][0]]
 
             if len(layers) == 1:
-                layerDataDeferred.addCallback(getSingleData)
+                layerDataDeferred.addCallback(self._handleSigleServerRequest)
             else:
                 layerDataDeferred.addCallback(getMultipleData)
+
+    def _handleSigleServerRequest(self, data):
+        layers = self.query['LAYERS']
+        qs = self.query
+        if data:
+            data = data[0]
+            self.connectRemoteUrl(data, qs, [data[0]], GetMapClientFactory, GetMapClient)
+        else:
+            self.parent.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
+                                       "LayerNotDefined")
+
+    def init(self):
+        pass
+
+    def combine(self, newData):
+        pass
+
+    def getData(self):
+        pass
+
+
+class GetFeatureInfo(RemoteDataRequest):
+    # These are formats that can be concatenated
+    # TODO: GML too?
+    FORMATS = [ 'text/xml', 'text/plain' ]
+
+    REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
+                 'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
+		 'I', 'J' ]
+
+    text = ""
+    
+    def __init__(self, parent, query):
+        RemoteDataRequest.__init__(self, parent, query)
+
+    def init(self):
+        self.text = text
+
+    def combine(self, newData):
+        self.text += newData
+
+    def getData(self):
+        return self.text
+
+##
+## GetMap
+##
+class GetMap(RemoteDataRequest):
+    FORMATS = [ 'image/png', 'image/png8', 'image/gif', 'image/jpeg', \
+                'image/tiff', 'image/tiff8' ]
+    REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
+                 'WIDTH', 'HEIGHT', 'FORMAT' ]
+
+    def __init__(self, parent, query):
+        RemoteDataRequest.__init__(self, parent, query)
 
 
 class MultiServerGetMapFetcher:
