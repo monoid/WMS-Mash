@@ -314,7 +314,7 @@ class DumbHTTPClientFactory(ClientFactory):
 
     def handleResponseEnd(self):
         if self.state == OGC_ERROR:
-            self.deferred.error(self.ogc_buf.getvalue())
+            self.deferred.errback(self.ogc_buf.getvalue())
         else:
             self.deferred.callback(self.getResult())
 
