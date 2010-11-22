@@ -61,7 +61,7 @@ ORDER BY parent_id ASC, ord ASC""", (set_name,))
 def getLayerData(set, layers):
     """Return Deferred for layers' information fetched from database."""
     layerData = DBPOOL.runQuery(
-"""SELECT layers.name, servers.url, servers.id, servers.login, servers.passwd
+"""SELECT layertree.name, layers.name, servers.url, servers.id, servers.login, servers.passwd
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id

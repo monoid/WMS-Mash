@@ -9,6 +9,7 @@ from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
 from twisted.internet.defer import Deferred
 
 from PIL import Image
+from PIL import ImageFile
 
 from nrcgit.wmsmash.core import Wms
 import nrcgit.wmsmash.core as core
@@ -84,7 +85,7 @@ init and combine are not called.
         WmsQuery.__init__(self, parent, query)
 
     def connectRemoteUrl(self, data, qs, layers, clientFactoryClass):
-        url = data[1]
+        url = data[2]
         parsed = urlparse.urlparse(url)
         rest = urlparse.urlunparse(('', '') + parsed[2:])
         qs['LAYERS'] = ','.join(layers)
@@ -93,64 +94,50 @@ init and combine are not called.
         host_split = parsed.netloc.split(':')
         host = host_split[0]
         port = (host_split[1] and int(host_split[1])) or 80 # TODO: https
-        clientFactory = clientFactoryClass(url, qs, self.parent, data)
+        clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
         reactor.connectTCP(host, port, clientFactory)
-        return clientFactory
+        return clientFactory.deferred
 
     def run(self):
         layers = self.query['LAYERS']
         qs = self.query
         if layers:
             layerDataDeferred = relay.getLayerData(qs['SET'], layers)
-            def getSingleData(data):
-                pass
-            def getMultipleData(data):
-                layer_dict = {}
-                # Fill dict with data
-                for d in data:
-                    lset[d[0]] = d
-                # Check if all layers are available
-                for name in layers:
-                    if name not in lset:
-                        self.reportWmsError("Layer %s not found." % name,
-                                            "LayerNotDefined")
-                        return
 
-                width = int(qs['WIDTH'])
-                height = int(qs['HEIGHT'])
-
-                if width > MAX_IMG_SIZE or height > MAX_IMG_SIZE:
-                    self.reportWmsError("Requested image too large (max %d)" % MAX_IMG_SIZE,
-                                        "ImageTooLarge")
-                    return
-
-                image = Image.new("RGB", (width, height))
-                first = True
-
-                # This loop have to be made asynchronous
-                for name in layers:
-                    params = qs.copy()
-                    if not first:
-                        params['TRANSPARENT'] = 'TRUE'
-                    first = False
-                    params['LAYERS'] = [layer_dict[name][0]]
+            # TODO: group sequence of layers
 
             if len(layers) == 1:
                 layerDataDeferred.addCallback(self._handleSigleServerRequest)
             else:
-                layerDataDeferred.addCallback(getMultipleData)
+                layerDataDeferred.addCallback(self._handleMultipleServerRequest)
 
     def _handleSigleServerRequest(self, data):
         layers = self.query['LAYERS']
-        qs = self.query
+        qs = self.query.copy()
         if data:
             data = data[0]
-            self.connectRemoteUrl(data, qs, [data[0]], ProxyClientFactory)
+            self.connectRemoteUrl(data, qs, [data[1]], ProxyClientFactory)
         else:
             self.parent.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
                                        "LayerNotDefined")
 
-    def init(self):
+    def _handleMultipleServerRequest(self, data):
+        layers = self.query['LAYERS']
+        layer_dict = {}
+        # Fill dict with data
+        for d in data:
+            layer_dict[d[0]] = d
+        # Check if all layers are available
+        for name in layers:
+            if name not in layer_dict:
+                self.parent.reportWmsError("Layer %s not found." % name,
+                                           "LayerNotDefined")
+                return
+
+        self.data = data
+        self.init(layer_dict)
+        
+    def init(self, layer_dict):
         pass
 
     def combine(self, newData):
@@ -178,7 +165,7 @@ class GetFeatureInfo(RemoteDataRequest):
     def __init__(self, parent, query):
         RemoteDataRequest.__init__(self, parent, query)
 
-    def init(self):
+    def init(self, layer_dict):
         self.text = text
 
     def combine(self, newData):
@@ -190,6 +177,9 @@ class GetFeatureInfo(RemoteDataRequest):
 ##
 ## GetMap
 ##
+
+MAX_IMG_SIZE = 2048
+
 class GetMap(RemoteDataRequest):
     FORMATS = [ 'image/png', 'image/png8', 'image/gif', 'image/jpeg', \
                 'image/tiff', 'image/tiff8' ]
@@ -199,6 +189,60 @@ class GetMap(RemoteDataRequest):
     def __init__(self, parent, query):
         RemoteDataRequest.__init__(self, parent, query)
 
+    def init(self, layer_dict):
+        print "GetMap init"
+        qs = self.query
+        width = int(qs['WIDTH'])
+        height = int(qs['HEIGHT'])
+        if width > MAX_IMG_SIZE or height > MAX_IMG_SIZE:
+            self.parent.reportWmsError("Requested image too large (max %d)" % MAX_IMG_SIZE,
+                                "ImageTooLarge")
+            return
+
+        self.image = Image.new("RGB", (width, height))
+        self.image.format = 'image/png'
+
+        def req_gen():
+            first = True
+            i = 0
+            for l in self.query['LAYERS']:
+                layer = layer_dict[l]
+                qs = self.query.copy()
+                if not first:
+                    qs['TRANSPARENT'] = 'TRUE'
+                if ('STYLES' in self.query) and (i < len(self.query['STYLES'])):
+                    qs['STYLES'] = self.query['STYLES'][i]
+                print "req_gen"
+                print layer
+                yield self.connectRemoteUrl(layer, qs, [layer[1]], ImageClientFactory)
+                first = False
+                i += 1
+        self.generator = req_gen()
+        self.generator.next().addCallback(self.combine)
+
+    def combine(self, newData):
+        print "Combine"
+        print newData
+        self.image.paste(newData, newData)
+        print "After paste"
+        try:
+            d = self.generator.next()
+            print "Next"
+            d.addCallback(self.combine)
+            print "return callback"
+            return d
+        except StopIteration:
+            print "StopIteration"
+            self.finish()
+
+    def finish(self):
+        io = cStringIO.StringIO()
+        self.image.save(io, "PNG") # TODO JPEG, GIF, TIFF, etc
+        data = io.getvalue()
+#         self.parent.father.responseHeaders.addRawHeader('Content-type', 'image/png')
+#         self.parent.father.responseHeaders.addRawHeader('Content-length', str(len(data)))
+        self.parent.write(data)
+        self.parent.finish()
 
 ##
 ## Remote connection handling.
@@ -219,6 +263,7 @@ subclass of DumbHTTPClientFactory."""
         login = self.factory.login
         password = self.factory.password
 
+        print "REQUEST: "+host+rest
         self.sendCommand('GET', rest)
         self.sendHeader('Host', host)
         self.sendHeader('User-Agent', SERVER_AGENT)
@@ -259,16 +304,18 @@ class DumbHTTPClientFactory(ClientFactory):
 
     deferred = None
 
-    def __init__(self, url, params, father, data):
+    def __init__(self, url, params, father, data, req):
         self.deferred = Deferred()
         self.url = url
         self.params = params
         self.father = father
         self.data = data
-        self.login = self.data[3]
-        self.password = self.data[4]
+        self.login = self.data[4]
+        self.password = self.data[5]
+        self.req = req
+        print "DumbHTTPClientFactory"
         print data
-        self.remote = data[1]
+        self.remote = data[2]
 
     def clientConnectionFailed(self, connector, reason):
         """
@@ -326,11 +373,11 @@ class ProxyClientFactory(DumbHTTPClientFactory):
     """Proxy client factory simply sends headers and data to client.
 It works for both GetMap and GetFeatureInfo.
 """
-    def __init__(self, url, params, father, data):
-        DumbHTTPClientFactory.__init__(self, url, params, father, data)
+    def __init__(self, url, params, father, data, req):
+        DumbHTTPClientFactory.__init__(self, url, params, father, data, req)
      
     def handleOtherHeader(self, key, value):
-        # TODO: handle preset headers
+       # TODO: handle preset headers
        # t.web.server.Request sets default values for these headers in its
        # 'process' method. When these headers are received from the remote
        # server, they ought to override the defaults, rather than append to
@@ -349,3 +396,35 @@ It works for both GetMap and GetFeatureInfo.
         self.father.finish()
         return True
                            
+
+##
+## Image client
+##
+
+class ImageClientFactory(DumbHTTPClientFactory):
+    def __init__(self, url, params, father, data, req):
+        DumbHTTPClientFactory.__init__(self, url, params, father, data, req)
+        self.img = ImageFile.Parser()
+        print "ImageClientFactory"
+
+    def handleOtherHeader(self, key, value):
+       # TODO: handle preset headers
+       # t.web.server.Request sets default values for these headers in its
+       # 'process' method. When these headers are received from the remote
+       # server, they ought to override the defaults, rather than append to
+       # them.
+       if key.lower() == 'server':
+           pass
+       elif key.lower() in ['date', 'content-type']:
+           self.father.responseHeaders.setRawHeaders(key, [value])
+       else:
+           self.father.responseHeaders.addRawHeader(key, value)
+       pass
+
+    def handleData(self, data):
+        print "ImageClientFactory.handleData()"
+        self.img.feed(data)
+
+    def getResult(self):
+        print "ImageClientFactory.getResult()"
+        return self.img.close()
