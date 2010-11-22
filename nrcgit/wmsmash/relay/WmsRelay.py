@@ -53,7 +53,10 @@ class WmsRelayRequest(Request):
 
     def handleGetMap(self, qs):
         handlers.GetMap(self, qs).run()
-        
+
+    def handleGetFeatureInfo(self, qs):
+        handlers.GetFeatureInfo(self, qs).run()
+
     def process(self):
         """ TODO: parsing request
         0. Traslate params to canonic form
@@ -76,10 +79,7 @@ class WmsRelayRequest(Request):
                 elif reqtype == 'GETMAP':
                     return self.handleGetMap(qs)
                 elif reqtype == 'GETFEATUREINFO':
-                    layer = qs['LAYER']
-                    req = qs.copy()
-                    # TODO update req basing on database info
-                    pass
+                    return self.handleGetFeatureInfo(qs)
             else:
                 self.reportWmsError("Invalid WMS request", "InvalidRequest")
             self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
