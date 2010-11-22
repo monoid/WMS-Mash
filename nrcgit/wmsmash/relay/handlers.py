@@ -6,6 +6,7 @@ from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
 from twisted.web.resource import Resource
 from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
+from twisted.internet.defer import Deferred
 
 from PIL import Image
 
@@ -66,10 +67,6 @@ class GetCapabilities(WmsQuery):
             reportCapabilites,
             lambda x: self.parent.reportWmsError("DB error"+str(x), "DbError"))
         
-##
-## GetFeatureInfo
-##
-
 
 class RemoteDataRequest(WmsQuery):
     """Request that fetches data from remote servers, e.g. GetCapabilities
@@ -86,7 +83,7 @@ init and combine are not called.
     def __init__(self, parent, query):
         WmsQuery.__init__(self, parent, query)
 
-    def connectRemoteUrl(self, data, qs, layers, clientFactoryClass, clientClass):
+    def connectRemoteUrl(self, data, qs, layers, clientFactoryClass):
         url = data[1]
         parsed = urlparse.urlparse(url)
         rest = urlparse.urlunparse(('', '') + parsed[2:])
@@ -96,7 +93,7 @@ init and combine are not called.
         host_split = parsed.netloc.split(':')
         host = host_split[0]
         port = (host_split[1] and int(host_split[1])) or 80 # TODO: https
-        clientFactory = clientFactoryClass(url, qs, self.parent, clientClass, data)
+        clientFactory = clientFactoryClass(url, qs, self.parent, data)
         reactor.connectTCP(host, port, clientFactory)
         return clientFactory
 
@@ -148,7 +145,7 @@ init and combine are not called.
         qs = self.query
         if data:
             data = data[0]
-            self.connectRemoteUrl(data, qs, [data[0]], GetMapClientFactory, GetMapClient)
+            self.connectRemoteUrl(data, qs, [data[0]], ProxyClientFactory)
         else:
             self.parent.reportWmsError("Layer %s not found." % qs['LAYERS'][0],
                                        "LayerNotDefined")
@@ -162,6 +159,10 @@ init and combine are not called.
     def getData(self):
         pass
 
+
+##
+## GetFeatureInfo
+##
 
 class GetFeatureInfo(RemoteDataRequest):
     # These are formats that can be concatenated
@@ -199,27 +200,70 @@ class GetMap(RemoteDataRequest):
         RemoteDataRequest.__init__(self, parent, query)
 
 
-class MultiServerGetMapFetcher:
-    pass
+##
+## Remote connection handling.
+##
 
+class DumbHTTPClient(HTTPClient):
+    """HTTP client that redirects most calls to factory that should be
+subclass of DumbHTTPClientFactory."""
+    _fatherFinished = False
+    
+    def connectionMade(self):
+        parsed = urlparse.urlparse(self.factory.remote)
+        self._params = self.factory.params.copy()
+        del self._params['SET']
+        # TODO: this should be handled carefully
+        rest = parsed.path+'?'+Wms.wmsBuildQuery(self._params)
+        host = parsed.netloc.split(':')[0]
+        login = self.factory.login
+        password = self.factory.password
 
-class SimpleGetMapFetcher:
-    pass
+        self.sendCommand('GET', rest)
+        self.sendHeader('Host', host)
+        self.sendHeader('User-Agent', SERVER_AGENT)
+        if login and password:
+            b64str = base64.encodestring(login+':'+password)[:-1]
+            self.sendHeader('Authorization', 'Basic ' + b64str)
+        self.endHeaders()
+        self.factory.connectionMade()
 
+    def _ebNotifyFinish(self, e):
+        self._fatherFinished = True
+        self.transport.loseConnection()
 
-class GetMapClientFactory(ClientFactory):
-    """
-    Used by ProxyRequest to implement a simple web proxy.
-    """
+    def handleStatus(self, version, code, message):
+        code = int(code)
+        self.factory.handleStatus(code, message)
 
-    # Param list will be extended, because different types of request
-    # have different arguments (complex GetMap and GetFeatureInfo have
-    # list of urls and list of layers).  You may think this is a stub
-    def __init__(self, url, params, father, proto, data):
+    def handleHeader(self, key, value):
+        self.factory.handleHeader(key, value)
+            
+    def handleResponsePart(self, buffer):
+        self.factory.handleResponsePart(buffer)
+    
+    def handleResponseEnd(self):
+        self.factory.handleResponseEnd()
+        if not self._fatherFinished:
+            self.transport.loseConnection()
+
+INIT = 0
+DATA = 1
+OGC_ERROR = 2
+TRANSPORT_ERROR = 3
+
+class DumbHTTPClientFactory(ClientFactory):
+    protocol = DumbHTTPClient
+    state = INIT
+    ogc_buf = None
+
+    deferred = None
+
+    def __init__(self, url, params, father, data):
+        self.deferred = Deferred()
         self.url = url
         self.params = params
         self.father = father
-        self.protocol = proto
         self.data = data
         self.login = self.data[3]
         self.password = self.data[4]
@@ -231,70 +275,77 @@ class GetMapClientFactory(ClientFactory):
         Report a connection failure in a response to the incoming request as
         an error.
         """
-        # TODO: different error?
-        self.father.setResponseCode(501, "Gateway error")
-        self.father.responseHeaders.addRawHeader("Content-Type", "text/html")
-        self.father.write("<H1>Could not connect</H1>")
-        self.father.finish()
-
-
-class GetMapClient(HTTPClient):
-    _fatherFinished = False
-    father = None
-    login = None
-    password = None
-    _params = None
+        deferred.error((connector, reason))
+#         # TODO: different error?
+#         self.father.setResponseCode(501, "Gateway error")
+#         self.father.responseHeaders.addRawHeader("Content-Type", "text/html")
+#         self.father.write("<H1>Could not connect</H1>")
+#         self.father.finish()
 
     def connectionMade(self):
-        print self.factory.remote
-        parsed = urlparse.urlparse(self.factory.remote)
-        self._params = self.factory.params.copy()
-        del self._params['SET']
-        # TODO: this should be handled carefully
-        rest = parsed.path+'?'+Wms.wmsBuildQuery(self._params)
-        host = parsed.netloc.split(':')[0]
-        login = self.factory.login
-        password = self.factory.password
+        pass
 
-        self.father = self.factory.father
-        self.father.setHeader('Server', SERVER_AGENT)
-        self.father.notifyFinish().addErrback(self._ebNotifyFinish)
-
-        self.sendCommand('GET', rest)
-        self.sendHeader('Host', host)
-        self.sendHeader('User-Agent', SERVER_AGENT)
-        if login and password:
-            b64str = base64.encodestring(login+':'+password)[:-1]
-            self.sendHeader('Authorization', 'Basic ' + b64str)
-        self.endHeaders()
-
-    def _ebNotifyFinish(self, e):
-        self._fatherFinished = True
-        self.transport.loseConnection()
-
-    def handleStatus(self, version, code, message):
-        code = int(code)
-        if code == 401:
-            self.father.setResponseCode(403, "Remote access denied.")
-        else:
-            self.father.setResponseCode(code, message)
+    def handleStatus(self, code, message):
+        pass
 
     def handleHeader(self, key, value):
-        # t.web.server.Request sets default values for these headers in its
-        # 'process' method. When these headers are received from the remote
-        # server, they ought to override the defaults, rather than append to
-        # them.
-        if key.lower() == 'server':
-            pass
-        elif key.lower() in ['date', 'content-type']:
-            self.father.responseHeaders.setRawHeaders(key, [value])
+        if key.lower() == 'content-type' and \
+                value == 'application/vnd.ogc.wms_xml':
+            self.state = OGC_ERROR
+            self.ogc_buf = cStringIO.StringIO()
         else:
-            self.father.responseHeaders.addRawHeader(key, value)
+            self.handleOtherHeader(key, value)
 
-    def handleResponsePart(self, buffer):
-        self.father.write(buffer)
-    
+    def handleResponsePart(self, data):
+        if self.state == OGC_ERROR:
+            self.ogc_buf.write(data)
+        else:
+            self.state = DATA
+            self.handleData(data)
+
+    def handleData(self, data):
+        pass
+
+    def getResult(self):
+        pass
+
+    def handleOtherHeader(self, key, value):
+        pass
+
     def handleResponseEnd(self):
-        if not self._fatherFinished:
-            self.father.finish()
-            self.transport.loseConnection()
+        if self.state == OGC_ERROR:
+            self.deferred.error(self.ogc_buf.getvalue())
+        else:
+            self.deferred.callback(self.getResult())
+
+##
+## Simple proxy client
+##
+
+class ProxyClientFactory(DumbHTTPClientFactory):
+    """Proxy client factory simply sends headers and data to client.
+It works for both GetMap and GetFeatureInfo.
+"""
+    def __init__(self, url, params, father, data):
+        DumbHTTPClientFactory.__init__(self, url, params, father, data)
+     
+    def handleOtherHeader(self, key, value):
+        # TODO: handle preset headers
+       # t.web.server.Request sets default values for these headers in its
+       # 'process' method. When these headers are received from the remote
+       # server, they ought to override the defaults, rather than append to
+       # them.
+       if key.lower() == 'server':
+           pass
+       elif key.lower() in ['date', 'content-type']:
+           self.father.responseHeaders.setRawHeaders(key, [value])
+       else:
+           self.father.responseHeaders.addRawHeader(key, value)
+
+    def handleData(self, data):
+        self.father.write(data)
+
+    def getResult(self):
+        self.father.finish()
+        return True
+                           
