@@ -185,8 +185,7 @@ def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
                ['application/vnd.ogc.wms_xml'],
                lset_cfg['url'])
     capRequest(req, 'GetMap',
-               ['image/png', 'image/png8', 'image/gif', 'image/jpeg', 
-                'image/tiff', 'image/tiff8'],
+               ['image/png', 'image/jpeg', 'image/tiff' ],
                lset_cfg['url'])
     capRequest(req, 'GetFeatureInfo',
                ['text/plain', 'text/html'],

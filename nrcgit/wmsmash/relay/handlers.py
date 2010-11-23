@@ -224,8 +224,12 @@ class GetFeatureInfo(RemoteDataRequest):
 MAX_IMG_SIZE = 2048
 
 class GetMap(RemoteDataRequest):
-    FORMATS = [ 'image/png', 'image/png8', 'image/gif', 'image/jpeg', \
-                'image/tiff', 'image/tiff8' ]
+    FORMATS = [ 'image/png', 'image/gif', 'image/jpeg', 'image/tiff' ]
+    OUTPUT_TYPE = {
+        'image/png': 'PNG',
+        'image/jpeg': 'JPEG',
+        'image/tiff': 'TIFF',
+    }
     REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
                  'WIDTH', 'HEIGHT', 'FORMAT' ]
 
@@ -242,8 +246,8 @@ class GetMap(RemoteDataRequest):
                                 "ImageTooLarge")
             return
 
-        self.image = Image.new("RGB", (width, height))
-        self.image.format = 'image/png'
+        self.image = Image.new("RGBA", (width, height))
+        self.image.format = qs['FORMAT']
 
         def req_gen():
             first = True
@@ -253,6 +257,9 @@ class GetMap(RemoteDataRequest):
                 qs = self.query.copy()
                 if not first:
                     qs['TRANSPARENT'] = 'TRUE'
+                    if qs['FORMAT'] == 'image/jpeg':
+                        qs['FORMAT'] = 'image/png'
+                    
                 if ('STYLES' in self.query) and (i < len(self.query['STYLES'])):
                     qs['STYLES'] = self.query['STYLES'][i]
                 print "req_gen"
@@ -266,7 +273,12 @@ class GetMap(RemoteDataRequest):
     def combine(self, newData):
         print "Combine"
         print newData
-        self.image.paste(newData, newData)
+        print newData.format+' '+newData.mode
+        if newData.mode != 'RGBA':
+            newData = newData.convert("RGBA")
+            print "After convert "+newData.mode
+        self.image.paste(newData, mask=newData)
+
         print "After paste"
         try:
             d = self.generator.next()
@@ -280,7 +292,7 @@ class GetMap(RemoteDataRequest):
 
     def finish(self):
         io = cStringIO.StringIO()
-        self.image.save(io, "PNG") # TODO JPEG, GIF, TIFF, etc
+        self.image.save(io, GetMap.OUTPUT_TYPE[self.query['FORMAT']])
         data = io.getvalue()
 #         self.parent.father.responseHeaders.addRawHeader('Content-type', 'image/png')
 #         self.parent.father.responseHeaders.addRawHeader('Content-length', str(len(data)))
