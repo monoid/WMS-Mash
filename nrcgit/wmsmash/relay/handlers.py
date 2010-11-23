@@ -150,6 +150,9 @@ init and combine are not called.
     def getData(self):
         pass
 
+    def handleError(self, err):
+        print "Error"
+        self.parent.reportWmsError("Remote error", "RemoteError")
 
 ##
 ## GetFeatureInfo
@@ -201,13 +204,13 @@ class GetFeatureInfo(RemoteDataRequest):
                 first = False
                 i += 1
         self.generator = req_gen()
-        self.generator.next().addCallback(self.combine)
+        self.generator.next().addCallbacks(self.combine, self.handleError)
 
     def combine(self, newData):
         self.text += newData
         try:
             d = self.generator.next()
-            d.addCallback(self.combine)
+            d.addCallbacks(self.combine, self.handleError)
             return d
         except StopIteration:
             self.finish()
@@ -264,7 +267,7 @@ class GetMap(RemoteDataRequest):
                 first = False
                 i += 1
         self.generator = req_gen()
-        self.generator.next().addCallback(self.combine)
+        self.generator.next().addCallbacks(self.combine, self.handleError)
 
     def combine(self, newData):
         if newData.mode != 'RGBA':
@@ -273,7 +276,7 @@ class GetMap(RemoteDataRequest):
 
         try:
             d = self.generator.next()
-            d.addCallback(self.combine)
+            d.addCallbacks(self.combine, self.handleError)
             return d
         except StopIteration:
             self.finish()
@@ -376,8 +379,10 @@ class DumbHTTPClientFactory(ClientFactory):
         pass
 
     def handleHeader(self, key, value):
+        print "key "+key+" val "+value
         if key.lower() == 'content-type' and \
-                value == 'application/vnd.ogc.wms_xml':
+                value.startswith('application/vnd.ogc.se_xml'):
+            print "Remote error"
             self.state = OGC_ERROR
             self.ogc_buf = cStringIO.StringIO()
         else:
