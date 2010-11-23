@@ -210,7 +210,6 @@ class GetFeatureInfo(RemoteDataRequest):
             d.addCallback(self.combine)
             return d
         except StopIteration:
-            print "StopIteration"
             self.finish()
 
     def finish(self):
@@ -237,7 +236,6 @@ class GetMap(RemoteDataRequest):
         RemoteDataRequest.__init__(self, parent, query)
 
     def init(self, layer_dict):
-        print "GetMap init"
         qs = self.query
         width = int(qs['WIDTH'])
         height = int(qs['HEIGHT'])
@@ -262,8 +260,6 @@ class GetMap(RemoteDataRequest):
                     
                 if ('STYLES' in self.query) and (i < len(self.query['STYLES'])):
                     qs['STYLES'] = self.query['STYLES'][i]
-                print "req_gen"
-                print layer
                 yield self.connectRemoteUrl(layer, qs, [layer[1]], ImageClientFactory)
                 first = False
                 i += 1
@@ -271,23 +267,15 @@ class GetMap(RemoteDataRequest):
         self.generator.next().addCallback(self.combine)
 
     def combine(self, newData):
-        print "Combine"
-        print newData
-        print newData.format+' '+newData.mode
         if newData.mode != 'RGBA':
             newData = newData.convert("RGBA")
-            print "After convert "+newData.mode
         self.image.paste(newData, mask=newData)
 
-        print "After paste"
         try:
             d = self.generator.next()
-            print "Next"
             d.addCallback(self.combine)
-            print "return callback"
             return d
         except StopIteration:
-            print "StopIteration"
             self.finish()
 
     def finish(self):
@@ -318,7 +306,6 @@ subclass of DumbHTTPClientFactory."""
         login = self.factory.login
         password = self.factory.password
 
-        print "REQUEST: "+host+rest
         self.sendCommand('GET', rest)
         self.sendHeader('Host', host)
         self.sendHeader('User-Agent', SERVER_AGENT)
@@ -368,8 +355,6 @@ class DumbHTTPClientFactory(ClientFactory):
         self.login = self.data[4]
         self.password = self.data[5]
         self.req = req
-        print "DumbHTTPClientFactory"
-        print data
         self.remote = data[2]
 
     def clientConnectionFailed(self, connector, reason):
@@ -461,7 +446,6 @@ class ImageClientFactory(DumbHTTPClientFactory):
     def __init__(self, url, params, father, data, req):
         DumbHTTPClientFactory.__init__(self, url, params, father, data, req)
         self.img = ImageFile.Parser()
-        print "ImageClientFactory"
 
     def handleOtherHeader(self, key, value):
        # TODO: handle preset headers
@@ -478,11 +462,9 @@ class ImageClientFactory(DumbHTTPClientFactory):
        pass
 
     def handleData(self, data):
-        print "ImageClientFactory.handleData()"
         self.img.feed(data)
 
     def getResult(self):
-        print "ImageClientFactory.getResult()"
         return self.img.close()
 
 class TextClientFactory(DumbHTTPClientFactory):
@@ -503,9 +485,7 @@ class TextClientFactory(DumbHTTPClientFactory):
        pass
 
     def handleData(self, data):
-        print "TextClientFactory.handleData()"
         self.text += data
 
     def getResult(self):
-        print "TextClientFactory.getResult()"
         return self.text
