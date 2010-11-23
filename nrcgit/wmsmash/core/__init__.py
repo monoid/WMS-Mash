@@ -62,6 +62,7 @@ class Layer:
 
         self.cleanCap()
 
+        parent = parent or 0
         if layerDict is not None and parent in layerDict:
             self.parent = layerDict[parent]
             self.parent.addChild(self)
@@ -116,9 +117,10 @@ class Layer:
             etree.SubElement(self.cap, 'Name').text = self.name
             etree.SubElement(self.cap, 'Title').text = self.title or ""
         etree.SubElement(self.cap, 'Abstract').text = self.abstract or ""
-        bb = etree.SubElement(self.cap, 'LatLonBoundingBox')
-        for key, val in self.latlngbb.bbox.items():
-            bb.attrib[key] = str(val)
+        if self.latlngbb.bbox:
+            bb = etree.SubElement(self.cap, 'LatLonBoundingBox')
+            for key, val in self.latlngbb.bbox.items():
+                bb.attrib[key] = str(val)
         for c in self.children:
             self.cap.append(c.dump())
         # DEBUG: add common SRS before we compute list of SRS correctly
@@ -130,7 +132,7 @@ class Layer:
         layerDict = {}
         layers = []
         ldParam = {'layerDict':layerDict}
-        root = Layer(None, root_title, '', '', [], '', '', None,
+        root = Layer(0, root_title, '', '', [], '', '', None,
                      0, None, None,
                      layerDict=layerDict)
         for rec in records:

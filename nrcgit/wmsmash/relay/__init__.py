@@ -39,8 +39,8 @@ If layerset does not exists, None is returned."""
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
     LEFT JOIN servers ON layers.server_id = servers.id
-  WHERE layerset.name = %s AND NOT layertree.hidden AND layers.available
-ORDER BY parent_id ASC, ord ASC""", (set_name,))
+  WHERE layerset.name = %s AND NOT layertree.hidden AND (layers.available OR layers.available IS NULL)
+ORDER BY parent_id ASC, ord DESC""", (set_name,))
             # Return a tuple: lset info, layers info
             layerDataDeferred.addCallback(lambda (layers): (lset[0], layers))
             return layerDataDeferred
