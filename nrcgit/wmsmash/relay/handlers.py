@@ -106,6 +106,10 @@ init and combine are not called.
 
             # TODO: group sequence of layers
 
+            # Actually, we have to check number of QUERY_LAYERS in
+            # GetFeatureInfo.  Current implementation works too, but
+            # negligibly suboptimal.
+            #
             if len(layers) == 1:
                 layerDataDeferred.addCallback(self._handleSigleServerRequest)
             else:
@@ -154,7 +158,7 @@ init and combine are not called.
 class GetFeatureInfo(RemoteDataRequest):
     # These are formats that can be concatenated
     # TODO: GML too?
-    FORMATS = [ 'text/xml', 'text/plain' ]
+    FORMATS = [ 'text/html', 'text/plain' ]
 
     REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
                  'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
@@ -166,13 +170,52 @@ class GetFeatureInfo(RemoteDataRequest):
         RemoteDataRequest.__init__(self, parent, query)
 
     def init(self, layer_dict):
-        self.text = text
+        def req_gen():
+            first = True
+            i = 0
+            for ln in self.query['QUERY_LAYERS']:
+                layer = layer_dict[ln]
+                qs = self.query.copy()
+                qs['LAYERS'] = layer[1]
+                qs['QUERY_LAYERS'] = layer[1]
+                # Look for proper style.
+                # order and number of elements in QUERY_LAYERS
+                # may be absoulutely different from LAYERS/STYLES field,
+                # so we do sequential lookup.
+                if 'STYLES' in self.query:
+                    del qs['STYLES']  # clear old value
+                    # len(qs['STYLES']) should be always less then
+                    # len(qs['STYLES']), but anyway...
+                    for i in range(0, min(len(self.query['LAYERS']),
+                                          len(self.query['STYLES']))):
+                        if self.query['LAYERS'][i] == layer[0]:
+                            qs['STYLES'] = self.query['STYLES'][i]
+                            break # Found
+
+                if not first:
+                    qs['TRANSPARENT'] = 'TRUE'
+                if ('STYLES' in self.query) and (i < len(self.query['STYLES'])):
+                    qs['STYLES'] = self.query['STYLES'][i]
+
+                yield self.connectRemoteUrl(layer, qs, [layer[1]], TextClientFactory)
+                first = False
+                i += 1
+        self.generator = req_gen()
+        self.generator.next().addCallback(self.combine)
 
     def combine(self, newData):
         self.text += newData
+        try:
+            d = self.generator.next()
+            d.addCallback(self.combine)
+            return d
+        except StopIteration:
+            print "StopIteration"
+            self.finish()
 
-    def getData(self):
-        return self.text
+    def finish(self):
+        self.parent.write(self.text)
+        self.parent.finish()
 
 ##
 ## GetMap
@@ -361,6 +404,7 @@ class DumbHTTPClientFactory(ClientFactory):
 
     def handleResponseEnd(self):
         if self.state == OGC_ERROR:
+            # TODO proper exception
             self.deferred.errback(self.ogc_buf.getvalue())
         else:
             self.deferred.callback(self.getResult())
@@ -428,3 +472,28 @@ class ImageClientFactory(DumbHTTPClientFactory):
     def getResult(self):
         print "ImageClientFactory.getResult()"
         return self.img.close()
+
+class TextClientFactory(DumbHTTPClientFactory):
+    text = ''
+
+    def handleOtherHeader(self, key, value):
+       # TODO: handle preset headers
+       # t.web.server.Request sets default values for these headers in its
+       # 'process' method. When these headers are received from the remote
+       # server, they ought to override the defaults, rather than append to
+       # them.
+       if key.lower() == 'server':
+           pass
+       elif key.lower() in ['date', 'content-type']:
+           self.father.responseHeaders.setRawHeaders(key, [value])
+       else:
+           self.father.responseHeaders.addRawHeader(key, value)
+       pass
+
+    def handleData(self, data):
+        print "TextClientFactory.handleData()"
+        self.text += data
+
+    def getResult(self):
+        print "TextClientFactory.getResult()"
+        return self.text
