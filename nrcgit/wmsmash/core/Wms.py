@@ -20,7 +20,7 @@ def wmsParseQuery(query_str):
         keyval = el.split("=", 1)
         key = keyval[0].upper()
         val = keyval[1]
-        if key in [ "LAYERS", "STYLES", "BBOX" ]:
+        if key in [ "LAYERS", "QUERY_LAYERS", "STYLES", "BBOX" ]:
             # HOLY CRAP, QGIS encodes parameters incorrectly
             # 5a1102986a2dcaef6326 was a waste of time.
             # Nobody obeys standards.
