@@ -56,10 +56,10 @@ class GetCapabilities(WmsQuery):
             buf = cStringIO.StringIO()
             (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
             self.parent.write(core.capCapabilitiesString(r, relay.CONFIG, {
-                        'title': "Academgorodok",
-                        'abstract': "Layers for Academgorodok (Novosibirsk)",
-                        'keywords': ["Academgorodok", "ecology"],
-                        'url': 'http://localhost:8080/virtual?Set=Academgorodok&SERVICE=WMS'
+                        'title': desc[1],
+                        'abstract': desc[2],
+                        'keywords': [],
+                        'url': 'http://localhost:8080/virtual?Set=%s&SERVICE=WMS' % desc[0]
                         }))
             self.parent.finish()
         
@@ -151,7 +151,6 @@ init and combine are not called.
         pass
 
     def handleError(self, err):
-        print "Error"
         self.parent.reportWmsError("Remote error", "RemoteError")
 
 ##
@@ -379,10 +378,8 @@ class DumbHTTPClientFactory(ClientFactory):
         pass
 
     def handleHeader(self, key, value):
-        print "key "+key+" val "+value
         if key.lower() == 'content-type' and \
                 value.startswith('application/vnd.ogc.se_xml'):
-            print "Remote error"
             self.state = OGC_ERROR
             self.ogc_buf = cStringIO.StringIO()
         else:
