@@ -80,7 +80,7 @@ class WmsRelayRequest(Request):
                     return self.handleGetMap(qs)
                 elif reqtype == 'GETFEATUREINFO':
                     return self.handleGetFeatureInfo(qs)
-                else
+                else:
                     self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
             else:
                 self.reportWmsError("Invalid WMS request", "InvalidRequest")
