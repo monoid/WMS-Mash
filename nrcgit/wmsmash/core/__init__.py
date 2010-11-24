@@ -181,7 +181,7 @@ def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
             sub(node, 'Format').text = format
         onlr = etree.Element('OnlineResource', nsmap=NSMAP)
         onlr.set('{http://www.w3.org/1999/xlink}type', 'simple')
-        onlr.set('{http://www.w3.org/1999/xlink}href', url+"&") # TODO
+        onlr.set('{http://www.w3.org/1999/xlink}href', url)
         sub(sub(sub(node, 'DCPType'), 'HTTP'), 'Get').append(onlr)
     capRequest(req, 'GetCapabilities',
                ['application/vnd.ogc.wms_xml'],
