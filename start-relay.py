@@ -14,9 +14,17 @@ from twisted.python import log
 import sys
 log.startLogging(sys.stdout)
 
+if len(sys.argv) > 1:
+    try:
+        PORT = int(sys.argv[1])
+    except:
+        PORT = 8080
+else:
+    PORT = 8080
+
 def startProxy(db):
-    reactor.listenTCP(8080, WmsRelay.WmsRelayFactory())
-    
+    reactor.listenTCP(PORT, WmsRelay.WmsRelayFactory())
+
 relay.DBPOOL = txpostgres.ConnectionPool('ignored',
                                    user='wms-manager',
                                    database='wmsman',
