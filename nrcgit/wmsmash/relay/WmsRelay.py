@@ -80,9 +80,10 @@ class WmsRelayRequest(Request):
                     return self.handleGetMap(qs)
                 elif reqtype == 'GETFEATUREINFO':
                     return self.handleGetFeatureInfo(qs)
+                else
+                    self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
             else:
                 self.reportWmsError("Invalid WMS request", "InvalidRequest")
-            self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
         except Exception as ex:
             self.reportWmsError("Internal error: %s %s" % (type(ex), ex), "InternalError")
 
