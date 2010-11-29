@@ -22,8 +22,10 @@ if len(sys.argv) > 1:
 else:
     PORT = 8080
 
+IFACE='localhost'
+
 def startProxy(db):
-    reactor.listenTCP(PORT, WmsRelay.WmsRelayFactory())
+    reactor.listenTCP(PORT, WmsRelay.WmsRelayFactory(), interface=IFACE)
 
 relay.DBPOOL = txpostgres.ConnectionPool('ignored',
                                    user='wms-manager',
