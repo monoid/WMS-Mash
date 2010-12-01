@@ -21,7 +21,7 @@ create table servers (
 create table layers (
        id serial primary key,
        server_id integer references servers(id),
-       name varchar(128) not null,
+       name varchar(128),
        title varchar(128) not null,
        abstract text,
        keywords text,
