@@ -7,3 +7,10 @@ implemented with Twisted.  PostgreSQL is used as a database backend.
 
 WMS is a Web Map Service
 http://en.wikipedia.org/wiki/Web_Map_Service
+
+Dependencies:
+
+ * twisted (tested with 9.0.0 and 10.1.0)
+ * lxml (2.2.8)
+ * txpostgres (tested with 0.3.0) and psycopg-2.2.2
+ * PIL (Python Imaging Library, tested with 1.1.7)
