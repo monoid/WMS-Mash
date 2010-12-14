@@ -418,7 +418,12 @@ It works for both GetMap and GetFeatureInfo.
 """
     def __init__(self, url, params, father, data, req):
         DumbHTTPClientFactory.__init__(self, url, params, father, data, req)
-     
+    
+    def buildProtocol(self, addr):
+        proto = DumbHTTPClientFactory.buildProtocol(self, addr)
+        self.father.registerProducer(proto, True)
+        return proto
+
     def handleOtherHeader(self, key, value):
        # TODO: handle preset headers
        # t.web.server.Request sets default values for these headers in its
@@ -436,9 +441,10 @@ It works for both GetMap and GetFeatureInfo.
         self.father.write(data)
 
     def getResult(self):
+        self.father.unregisterProducer()
         self.father.finish()
         return True
-                           
+    # TODO: unregisterProducer
 
 ##
 ## Image client
