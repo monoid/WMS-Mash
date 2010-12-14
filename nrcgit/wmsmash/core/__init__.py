@@ -103,12 +103,10 @@ class Layer:
 
     def dump(self):
         if (self.remote_url):
-            cascade = 0
-            if 'cascade' in self.cap.attrib:
-                try:
-                    cascade = int(self.cap.attrib['cascade'])
-                except ValueError:
-                    pass
+            try:
+                cascade = int(self.cap.attrib.get('cascade', 0))
+            except ValueError:
+                cascade = 0
             self.cap.attrib['cascade'] = str(cascade + 1)
 
         if self.remote_name is None:
