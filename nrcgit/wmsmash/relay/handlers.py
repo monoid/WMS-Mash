@@ -187,7 +187,7 @@ class GetFeatureInfo(RemoteDataRequest):
                 if 'STYLES' in self.query:
                     del qs['STYLES']  # clear old value
                     # len(qs['STYLES']) should be always less then
-                    # len(qs['STYLES']), but anyway...
+                    # len(qs['LAYERS']), but anyway...
                     for i in range(0, min(len(self.query['LAYERS']),
                                           len(self.query['STYLES']))):
                         if self.query['LAYERS'][i] == layer[0]:
