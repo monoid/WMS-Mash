@@ -197,15 +197,16 @@ def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
         
     
 def capCapabilitiesString(layers, config, lset_cfg, version='1.1.1'):
+    print 'lset_cfg=', lset_cfg
     root = etree.Element('WMT_MS_Capabilities', version=version)
     service = etree.SubElement(root, 'Service')
     etree.SubElement(service, 'Name').text = 'OGC:WMS'
-    etree.SubElement(service, 'Title').text = lset_cfg['title']
-    etree.SubElement(service, 'Abstract').text = lset_cfg['abstract']
+    etree.SubElement(service, 'Title').text = lset_cfg['title'].decode('utf-8')
+    etree.SubElement(service, 'Abstract').text = lset_cfg['abstract'].decode('utf-8')
 
     kwl = etree.SubElement(service, 'KeywordList')
     for kw in lset_cfg['keywords']:
-        etree.SubElement(kwl, 'Keyword').text = kw
+        etree.SubElement(kwl, 'Keyword').text = kw.decode('utf-8')
 
     onlr = etree.SubElement(service, 'OnlineResource', nsmap=NSMAP)
     onlr.set('{http://www.w3.org/1999/xlink}type', 'simple')
