@@ -57,7 +57,6 @@ ORDER BY parent_id ASC, ord DESC""", (set_name,))
     return layersetDataDeferred
 
 
-# TODO: handle multiple layers
 def getLayerData(set, layers):
     """Return Deferred for layers' information fetched from database."""
     layerData = DBPOOL.runQuery(
