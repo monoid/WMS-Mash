@@ -25,9 +25,9 @@ else:
 IFACE='localhost'
 
 def startProxy(db):
-    reactor.listenTCP(PORT, WmsRelay.WmsRelayFactory(), interface=IFACE)
+    reactor.listenTCP(PORT, WmsRelay.WmsRelayFactory(db), interface=IFACE)
 
-relay.DBPOOL = txpostgres.ConnectionPool('ignored',
+dbpool = txpostgres.ConnectionPool('ignored',
                                    user='wms-manager',
                                    database='wmsman',
                                    # You think this is a real password,
@@ -35,6 +35,6 @@ relay.DBPOOL = txpostgres.ConnectionPool('ignored',
                                    password='KlasckIbIp')
 
 # start() returns Deferred for pool initialization
-relay.DBPOOL.start().addCallback(startProxy)
+dbpool.start().addCallback(startProxy)
 
 reactor.run()

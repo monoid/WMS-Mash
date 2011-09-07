@@ -39,8 +39,9 @@ class GetCapabilities(WmsQuery):
     # Common required params like SERVICE and REQUEST are checked separately
     REQUIRED = []
 
-    def __init__(self, parent, query):
+    def __init__(self, parent, query, dbpool):
         WmsQuery.__init__(self, parent, query)
+        self.dbpool = dbpool
 
     def run(self):
         qs = self.query
@@ -63,7 +64,7 @@ class GetCapabilities(WmsQuery):
                         }))
             self.parent.finish()
         
-        layersetDataDeferred = relay.getCapabilitiesData(qs['SET'])
+        layersetDataDeferred = relay.getCapabilitiesData(self.dbpool, qs['SET'])
         layersetDataDeferred.addCallbacks(
             reportCapabilites,
             lambda x: self.parent.reportWmsError("DB error"+str(x), "DbError"))
@@ -81,8 +82,9 @@ init and combine are not called.
 """
     layers = None
 
-    def __init__(self, parent, query):
+    def __init__(self, parent, query, dbpool):
         WmsQuery.__init__(self, parent, query)
+        self.dbpool = dbpool
 
     def connectRemoteUrl(self, data, qs, layers, clientFactoryClass):
         url = data[2]
@@ -102,7 +104,7 @@ init and combine are not called.
         layers = self.query['LAYERS']
         qs = self.query
         if layers:
-            layerDataDeferred = relay.getLayerData(qs['SET'], layers)
+            layerDataDeferred = relay.getLayerData(self.dbpool, qs['SET'], layers)
 
             # TODO: group sequence of layers
 
@@ -168,8 +170,8 @@ class GetFeatureInfo(RemoteDataRequest):
 
     text = ""
     
-    def __init__(self, parent, query):
-        RemoteDataRequest.__init__(self, parent, query)
+    def __init__(self, parent, query, dbpool):
+        RemoteDataRequest.__init__(self, parent, query, dbpool)
 
     def init(self, layer_dict):
         def req_gen():
@@ -234,8 +236,8 @@ class GetMap(RemoteDataRequest):
     REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
                  'WIDTH', 'HEIGHT', 'FORMAT' ]
 
-    def __init__(self, parent, query):
-        RemoteDataRequest.__init__(self, parent, query)
+    def __init__(self, parent, query, dbpool):
+        RemoteDataRequest.__init__(self, parent, query, dbpool)
 
     def init(self, layer_dict):
         qs = self.query

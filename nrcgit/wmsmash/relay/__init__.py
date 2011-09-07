@@ -21,9 +21,7 @@ CONFIG = {
 ### Database interaction
 ###
 
-DBPOOL = None # TODO Global variables are BAD!
-
-def getCapabilitiesData(set_name):
+def getCapabilitiesData(dbpool, set_name):
     """This function returns a Deferred that that returns data for
 layerset's capabilities.  Data is a two-element tuple, first element
 describes layerset, second one is a list of layers.
@@ -32,7 +30,7 @@ If layerset does not exists, None is returned."""
     # Having a layersetData, fetch layerset
     def gotLayersetData(lset):
         if lset:
-            layerDataDeferred = DBPOOL.runQuery(
+            layerDataDeferred = dbpool.runQuery(
 """SELECT layertree.id, layertree.name, layers.title, layers.abstract,
           layers.name, servers.url, layertree.parent_id, layertree.parent_id,
           layertree.ord, layers.latlngbb, layers.capabilites
@@ -49,7 +47,7 @@ ORDER BY parent_id ASC, ord DESC""", (set_name,))
             return None
 
     # Get layerset info: name, title, abastract, author name
-    layersetDataDeferred = DBPOOL.runQuery(
+    layersetDataDeferred = dbpool.runQuery(
 """SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
 """, (set_name,))
     # Fetch layers in the layerset and return a tuple (layersetData, layerdata)
@@ -57,9 +55,9 @@ ORDER BY parent_id ASC, ord DESC""", (set_name,))
     return layersetDataDeferred
 
 
-def getLayerData(set, layers):
+def getLayerData(dbpool, set, layers):
     """Return Deferred for layers' information fetched from database."""
-    layerData = DBPOOL.runQuery(
+    layerData = dbpool.runQuery(
 """SELECT layertree.name, layers.name, servers.url, servers.id, servers.login, servers.passwd
   FROM layertree JOIN layerset ON layertree.lset_id = layerset.id
     LEFT JOIN layers ON layertree.layer_id = layers.id
