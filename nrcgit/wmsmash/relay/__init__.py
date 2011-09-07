@@ -1,3 +1,5 @@
+from twisted.internet import defer
+
 ###
 ### Config
 ###
@@ -21,16 +23,20 @@ CONFIG = {
 ### Database interaction
 ###
 
+@defer.inlineCallbacks
 def getCapabilitiesData(dbpool, set_name):
     """This function returns a Deferred that that returns data for
 layerset's capabilities.  Data is a two-element tuple, first element
 describes layerset, second one is a list of layers.
 
 If layerset does not exists, None is returned."""
-    # Having a layersetData, fetch layerset
-    def gotLayersetData(lset):
-        if lset:
-            layerDataDeferred = dbpool.runQuery(
+    # Get layerset info: name, title, abastract, author name
+    lset = yield dbpool.runQuery(
+"""SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
+""", (set_name,))
+    # Fetch layers in the layerset and return a tuple (layersetData, layerdata)
+    if lset:
+        layers = yield dbpool.runQuery(
 """SELECT layertree.id, layertree.name, layers.title, layers.abstract,
           layers.name, servers.url, layertree.parent_id, layertree.parent_id,
           layertree.ord, layers.latlngbb, layers.capabilites
@@ -39,21 +45,9 @@ If layerset does not exists, None is returned."""
     LEFT JOIN servers ON layers.server_id = servers.id
   WHERE layerset.name = %s AND NOT layertree.hidden AND (layers.available OR layers.available IS NULL)
 ORDER BY parent_id ASC, ord DESC""", (set_name,))
-            # Return a tuple: lset info, layers info
-            layerDataDeferred.addCallback(lambda (layers): (lset[0], layers))
-            return layerDataDeferred
-        else:
-            # Layerset does not exist, return None
-            return None
-
-    # Get layerset info: name, title, abastract, author name
-    layersetDataDeferred = dbpool.runQuery(
-"""SELECT layerset.name, title, abstract, users.username FROM layerset JOIN users ON users.id = layerset.author_id WHERE layerset.name = %s
-""", (set_name,))
-    # Fetch layers in the layerset and return a tuple (layersetData, layerdata)
-    layersetDataDeferred.addCallback(gotLayersetData)
-    return layersetDataDeferred
-
+        defer.returnValue((lset[0], layers))
+    else:
+        defer.returnValue(None)
 
 def getLayerData(dbpool, set, layers):
     """Return Deferred for layers' information fetched from database."""

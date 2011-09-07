@@ -6,7 +6,8 @@ from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
 from twisted.web.resource import Resource
 from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
-from twisted.internet.defer import Deferred
+from twisted.internet import defer
+from xml.sax import saxutils
 
 from PIL import Image
 from PIL import ImageFile
@@ -43,32 +44,32 @@ class GetCapabilities(WmsQuery):
         WmsQuery.__init__(self, parent, query)
         self.dbpool = dbpool
 
+    @defer.inlineCallbacks
     def run(self):
         qs = self.query
         layerset = qs['SET'] # TODO: parse URL instead
-        def reportCapabilites(data):
-            if (data is None):
-                self.parent.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
-                self.parent.finish()
-                return
 
-            desc, layers = data
-            self.parent.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
-            buf = cStringIO.StringIO()
-            (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
-            self.parent.write(core.capCapabilitiesString(r, relay.CONFIG, {
-                        'title': desc[1],
-                        'abstract': desc[2],
-                        'keywords': [],
-                        'url': 'http://localhost:8080/virtual?Set=%s&SERVICE=WMS' % desc[0]
-                        }))
+        d = relay.getCapabilitiesData(self.dbpool, qs['SET'])
+        d.addErrback(lambda e: self.parent.reportWmsError("DB error"+str(e), "DbError"))
+        data = yield d
+
+        if (data is None):
+            self.parent.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
             self.parent.finish()
-        
-        layersetDataDeferred = relay.getCapabilitiesData(self.dbpool, qs['SET'])
-        layersetDataDeferred.addCallbacks(
-            reportCapabilites,
-            lambda x: self.parent.reportWmsError("DB error"+str(x), "DbError"))
-        
+            return
+
+        desc, layers = data
+        self.parent.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
+        buf = cStringIO.StringIO()
+        (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
+        self.parent.write(core.capCapabilitiesString(r, relay.CONFIG, {
+                    'title': desc[1],
+                    'abstract': desc[2],
+                    'keywords': [],
+                    'url': 'http://localhost:8080/virtual?Set=%s&SERVICE=WMS' % desc[0]
+                    }))
+        self.parent.finish()
+            
 
 class RemoteDataRequest(WmsQuery):
     """Request that fetches data from remote servers, e.g. GetCapabilities
@@ -100,11 +101,12 @@ init and combine are not called.
         reactor.connectTCP(host, port, clientFactory)
         return clientFactory.deferred
 
+    @defer.inlineCallbacks
     def run(self):
         layers = self.query['LAYERS']
         qs = self.query
         if layers:
-            layerDataDeferred = relay.getLayerData(self.dbpool, qs['SET'], layers)
+            data = yield relay.getLayerData(self.dbpool, qs['SET'], layers)
 
             # TODO: group sequence of layers
 
@@ -113,9 +115,9 @@ init and combine are not called.
             # negligibly suboptimal.
             #
             if len(layers) == 1:
-                layerDataDeferred.addCallback(self._handleSigleServerRequest)
+                self._handleSigleServerRequest(data)
             else:
-                layerDataDeferred.addCallback(self._handleMultipleServerRequest)
+                self._handleMultipleServerRequest(data)
 
     def _handleSigleServerRequest(self, data):
         layers = self.query['LAYERS']
@@ -351,7 +353,7 @@ class DumbHTTPClientFactory(ClientFactory):
     deferred = None
 
     def __init__(self, url, params, father, data, req):
-        self.deferred = Deferred()
+        self.deferred = defer.Deferred()
         self.url = url
         self.params = params
         self.father = father
