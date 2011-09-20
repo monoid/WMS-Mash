@@ -96,7 +96,7 @@ init and combine are not called.
             rest = '/'
         host_split = parsed.netloc.split(':')
         host = host_split[0]
-        port = (host_split[1] and int(host_split[1])) or 80 # TODO: https
+        port = (len(host_split)>1 and int(host_split[1])) or 80 # TODO: https
         clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
         reactor.connectTCP(host, port, clientFactory)
         return clientFactory.deferred
