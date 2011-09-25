@@ -90,13 +90,12 @@ init and combine are not called.
     def connectRemoteUrl(self, data, qs, layers, clientFactoryClass):
         url = data[2]
         parsed = urlparse.urlparse(url)
-        rest = urlparse.urlunparse(('', '') + parsed[2:])
         qs['LAYERS'] = ','.join(layers)
-        if not rest:
-            rest = '/'
-        host_split = parsed.netloc.split(':')
-        host = host_split[0]
-        port = (len(host_split)>1 and int(host_split[1])) or 80 # TODO: https
+
+        host = parsed.hostname
+        default_port = (443 if parsed.scheme == 'https' else 80)
+        port = parsed.port or default_port
+
         clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
         reactor.connectTCP(host, port, clientFactory)
         return clientFactory.deferred
