@@ -6,7 +6,7 @@ from twisted.internet import reactor
 from twisted.internet.protocol import ClientFactory
 from twisted.web.resource import Resource
 from twisted.web.http import HTTPClient, Request, HTTPChannel, HTTPFactory
-from twisted.internet import defer
+from twisted.internet import defer, ssl
 from xml.sax import saxutils
 
 from PIL import Image
@@ -97,7 +97,11 @@ init and combine are not called.
         port = parsed.port or default_port
 
         clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
-        reactor.connectTCP(host, port, clientFactory)
+        if (parsed.scheme == 'https'):
+            # TODO: not tested!!!
+            reactor.connectSSL(host, port, clientFactory, ssl.WebClientContextFactory)
+        else:
+            reactor.connectTCP(host, port, clientFactory)
         return clientFactory.deferred
 
     @defer.inlineCallbacks
