@@ -371,7 +371,7 @@ class DumbHTTPClientFactory(ClientFactory):
         Report a connection failure in a response to the incoming request as
         an error.
         """
-        deferred.error((connector, reason))
+        self.deferred.error((connector, reason))
 #         # TODO: different error?
 #         self.father.setResponseCode(501, "Gateway error")
 #         self.father.responseHeaders.addRawHeader("Content-Type", "text/html")
