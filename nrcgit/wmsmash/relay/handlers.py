@@ -83,25 +83,34 @@ init and combine are not called.
 """
     layers = None
 
-    def __init__(self, parent, query, dbpool):
+    def __init__(self, parent, query, dbpool, proxy):
         WmsQuery.__init__(self, parent, query)
         self.dbpool = dbpool
+        self.proxy = proxy
 
     def connectRemoteUrl(self, data, qs, layers, clientFactoryClass):
-        url = data[2]
-        parsed = urlparse.urlparse(url)
         qs['LAYERS'] = ','.join(layers)
 
-        host = parsed.hostname
-        default_port = (443 if parsed.scheme == 'https' else 80)
-        port = parsed.port or default_port
+        if self.proxy:
+            url = data[2]
+            clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
 
-        clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
-        if (parsed.scheme == 'https'):
-            # TODO: not tested!!!
-            reactor.connectSSL(host, port, clientFactory, ssl.WebClientContextFactory)
+            reactor.connectTCP(self.proxy.hostname, int(self.proxy.port), clientFactory)
         else:
-            reactor.connectTCP(host, port, clientFactory)
+            # Trim hostname and port
+            url = data[2]
+            parsed = urlparse.urlparse(url)
+
+            host = parsed.hostname
+            default_port = (443 if parsed.scheme == 'https' else 80)
+            port = parsed.port or default_port
+
+            clientFactory = clientFactoryClass(url, qs, self.parent, data, self)
+            if (parsed.scheme == 'https'):
+                # TODO: not tested!!!
+                reactor.connectSSL(host, port, clientFactory, ssl.WebClientContextFactory)
+            else:
+                reactor.connectTCP(host, port, clientFactory)
         return clientFactory.deferred
 
     @defer.inlineCallbacks
@@ -176,7 +185,7 @@ class GetFeatureInfo(RemoteDataRequest):
     text = ""
     
     def __init__(self, parent, query, dbpool):
-        RemoteDataRequest.__init__(self, parent, query, dbpool)
+        RemoteDataRequest.__init__(self, parent, query, dbpool, proxy)
 
     def init(self, layer_dict):
         def req_gen():
@@ -241,8 +250,8 @@ class GetMap(RemoteDataRequest):
     REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
                  'WIDTH', 'HEIGHT', 'FORMAT' ]
 
-    def __init__(self, parent, query, dbpool):
-        RemoteDataRequest.__init__(self, parent, query, dbpool)
+    def __init__(self, parent, query, dbpool, proxy):
+        RemoteDataRequest.__init__(self, parent, query, dbpool, proxy)
 
     def init(self, layer_dict):
         qs = self.query
@@ -310,12 +319,14 @@ subclass of DumbHTTPClientFactory."""
         self._params = self.factory.params.copy()
         del self._params['SET']
         # TODO: this should be handled carefully
-        rest = parsed.path+'?'+Wms.wmsBuildQuery(self._params)
-        host = parsed.netloc.split(':')[0]
+        host = parsed.netloc # TODO: use hostname without port?
         login = self.factory.login
         password = self.factory.password
 
-        self.sendCommand('GET', rest)
+        parsed_list = list(parsed)
+        parsed_list[4] = Wms.wmsBuildQuery(self._params)
+
+        self.sendCommand('GET', urlparse.urlunparse(parsed_list))
         self.sendHeader('Host', host)
         self.sendHeader('User-Agent', SERVER_AGENT)
         if login and password:

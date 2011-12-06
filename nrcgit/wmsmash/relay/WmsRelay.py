@@ -52,10 +52,10 @@ class WmsRelayRequest(Request):
         handlers.GetCapabilities(self, qs, self.channel.dbpool).run()
 
     def handleGetMap(self, qs):
-        handlers.GetMap(self, qs, self.channel.dbpool).run()
+        handlers.GetMap(self, qs, self.channel.dbpool, self.channel.proxy).run()
 
     def handleGetFeatureInfo(self, qs):
-        handlers.GetFeatureInfo(self, qs, self.channel.dbpool).run()
+        handlers.GetFeatureInfo(self, qs, self.channel.dbpool, self.channel.proxy).run()
 
     def process(self):
         """ TODO: parsing request
@@ -106,12 +106,17 @@ class WmsRelay(HTTPChannel):
 class WmsRelayFactory(HTTPFactory):
     protocol = WmsRelay
 
-    def __init__(self, dbpool):
+    def __init__(self, dbpool, proxy=None):
         HTTPFactory.__init__(self)
         self.dbpool = dbpool
+        if proxy:
+            self.proxy = urlparse.urlparse(proxy)
+        else:
+            self.proxy = None
         
     def buildProtocol(self, addr):
         p = HTTPFactory.buildProtocol(self, addr)
         p.dbpool = self.dbpool
+        p.proxy  = self.proxy
         return p
         
