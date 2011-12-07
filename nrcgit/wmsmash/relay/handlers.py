@@ -368,16 +368,15 @@ class DumbHTTPClientFactory(ClientFactory):
 
     deferred = None
 
-    def __init__(self, url, params, father, data, req):
+    def __init__(self, remote, params, father, data, req):
         self.deferred = defer.Deferred()
-        self.url = url
+        self.remote = remote
         self.params = params
         self.father = father
         self.data = data
         self.login = self.data[4]
         self.password = self.data[5]
         self.req = req
-        self.remote = data[2]
 
     def clientConnectionFailed(self, connector, reason):
         """
