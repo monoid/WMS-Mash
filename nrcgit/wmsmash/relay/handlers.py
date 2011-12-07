@@ -315,15 +315,17 @@ subclass of DumbHTTPClientFactory."""
     _fatherFinished = False
     
     def connectionMade(self):
+        # s.f.remote is either path or full url if it is proxy connection
         parsed = urlparse.urlparse(self.factory.remote)
         self._params = self.factory.params.copy()
         del self._params['SET']
-        # TODO: this should be handled carefully
-        host = parsed.netloc # TODO: use hostname without port?
+        host = parsed.netloc # hostname:port
         login = self.factory.login
         password = self.factory.password
 
         parsed_list = list(parsed)
+        # TODO: this should be handled carefully: we have to merge remote's
+        # params, not overwrite
         parsed_list[4] = Wms.wmsBuildQuery(self._params)
 
         self.sendCommand('GET', urlparse.urlunparse(parsed_list))
