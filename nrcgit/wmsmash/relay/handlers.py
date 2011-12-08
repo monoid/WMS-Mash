@@ -62,12 +62,12 @@ class GetCapabilities(WmsQuery):
         self.parent.setHeader('Content-type', 'application/vnd.ogc.wms_xml')
         buf = cStringIO.StringIO()
         (r, lrs, ld) = core.Layer.buildTree(reversed(layers), desc[1])
-        self.parent.write(core.capCapabilitiesString(r, relay.CONFIG, {
-                    'title': desc[1],
-                    'abstract': desc[2],
-                    'keywords': [],
-                    'url': 'http://localhost:8080/virtual?Set=%s&SERVICE=WMS' % desc[0]
-                    }))
+        self.parent.write(core.capCapabilitiesString(r, self.parent.channel.WMSCFG, {
+            'title': desc[1],
+            'abstract': desc[2],
+            'keywords': [],
+            'url': (self.parent.channel.CFG['base_url_fmt'] % desc[0])
+            }))
         self.parent.finish()
             
 
