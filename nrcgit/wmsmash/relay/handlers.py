@@ -40,21 +40,22 @@ class GetCapabilities(WmsQuery):
     # Common required params like SERVICE and REQUEST are checked separately
     REQUIRED = []
 
-    def __init__(self, parent, query, dbpool):
+    def __init__(self, parent, query, user, lset, dbpool):
         WmsQuery.__init__(self, parent, query)
+        self.user = user
+        self.lset = lset
         self.dbpool = dbpool
 
     @defer.inlineCallbacks
     def run(self):
         qs = self.query
-        layerset = qs['SET'] # TODO: parse URL instead
 
-        d = relay.getCapabilitiesData(self.dbpool, qs['SET'])
+        d = relay.getCapabilitiesData(self.dbpool, self.user, self.lset)
         d.addErrback(lambda e: self.parent.reportWmsError("DB error"+str(e), "DbError"))
         data = yield d
 
         if (data is None):
-            self.parent.setResponseCode(404, "Layerset %s not found" % saxutils.escape(qs['SET']))
+            self.parent.setResponseCode(404, "Layerset %s/%s not found" % (saxutils.escape(self.user), saxutils.escape(self.lset)))
             self.parent.finish()
             return
 
@@ -83,8 +84,10 @@ init and combine are not called.
 """
     layers = None
 
-    def __init__(self, parent, query, dbpool, proxy):
+    def __init__(self, parent, query, user, lset, dbpool, proxy):
         WmsQuery.__init__(self, parent, query)
+        self.user = user
+        self.lset = lset
         self.dbpool = dbpool
         self.proxy = proxy
 
@@ -118,7 +121,7 @@ init and combine are not called.
         layers = self.query['LAYERS']
         qs = self.query
         if layers:
-            data = yield relay.getLayerData(self.dbpool, qs['SET'], layers)
+            data = yield relay.getLayerData(self.dbpool, self.user, self.lset, layers)
 
             # TODO: group sequence of layers
 
@@ -184,8 +187,8 @@ class GetFeatureInfo(RemoteDataRequest):
 
     text = ""
     
-    def __init__(self, parent, query, dbpool):
-        RemoteDataRequest.__init__(self, parent, query, dbpool, proxy)
+    def __init__(self, parent, query, user, lset, dbpool):
+        RemoteDataRequest.__init__(self, parent, query, user, lset, dbpool, proxy)
 
     def init(self, layer_dict):
         def req_gen():
@@ -250,8 +253,8 @@ class GetMap(RemoteDataRequest):
     REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
                  'WIDTH', 'HEIGHT', 'FORMAT' ]
 
-    def __init__(self, parent, query, dbpool, proxy):
-        RemoteDataRequest.__init__(self, parent, query, dbpool, proxy)
+    def __init__(self, parent, query, user, lset, dbpool, proxy):
+        RemoteDataRequest.__init__(self, parent, query, user, lset, dbpool, proxy)
 
     def init(self, layer_dict):
         qs = self.query
@@ -318,7 +321,6 @@ subclass of DumbHTTPClientFactory."""
         # s.f.remote is either path or full url if it is proxy connection
         parsed = urlparse.urlparse(self.factory.remote)
         self._params = self.factory.params.copy()
-        del self._params['SET']
         host = parsed.netloc # hostname:port
         login = self.factory.login
         password = self.factory.password

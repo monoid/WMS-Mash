@@ -48,14 +48,14 @@ class WmsRelayRequest(Request):
         self.write(xml)
         self.finish()
 
-    def handleGetCapabilities(self, qs):
-        handlers.GetCapabilities(self, qs, self.channel.dbpool).run()
+    def handleGetCapabilities(self, qs, user, lset):
+        handlers.GetCapabilities(self, qs, user, lset, self.channel.dbpool).run()
 
-    def handleGetMap(self, qs):
-        handlers.GetMap(self, qs, self.channel.dbpool, self.channel.proxy).run()
+    def handleGetMap(self, qs, user, lset):
+        handlers.GetMap(self, qs, user, lset, self.channel.dbpool, self.channel.proxy).run()
 
-    def handleGetFeatureInfo(self, qs):
-        handlers.GetFeatureInfo(self, qs, self.channel.dbpool, self.channel.proxy).run()
+    def handleGetFeatureInfo(self, qs, user, lset):
+        handlers.GetFeatureInfo(self, qs, user, lset, self.channel.dbpool, self.channel.proxy).run()
 
     def process(self):
         """ TODO: parsing request
@@ -70,16 +70,16 @@ class WmsRelayRequest(Request):
             parsed = urlparse.urlparse(self.uri)
             qs = Wms.wmsParseQuery(parsed[4])
 
-            layerset = qs['SET'] # TODO: parse URL instead
-            
+            [user, layerset] = parsed[2].split('/')[-2:]
+                        
             if self.ensureWms(qs):
                 reqtype = qs['REQUEST'].upper()
                 if reqtype == 'GETCAPABILITIES':
-                    return self.handleGetCapabilities(qs)
+                    return self.handleGetCapabilities(qs, user, layerset)
                 elif reqtype == 'GETMAP':
-                    return self.handleGetMap(qs)
+                    return self.handleGetMap(qs, user, layerset)
                 elif reqtype == 'GETFEATUREINFO':
-                    return self.handleGetFeatureInfo(qs)
+                    return self.handleGetFeatureInfo(qs, user, layerset)
                 else:
                     self.reportWmsError("Sorry, not implemented yet.", "NotImplemented")
             else:
