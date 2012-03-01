@@ -106,9 +106,13 @@ class WmsRelay(HTTPChannel):
 class WmsRelayFactory(HTTPFactory):
     protocol = WmsRelay
 
-    def __init__(self, dbpool, proxy=None):
+    def __init__(self, dbpool, cfg=None, wmscfg=None):
         HTTPFactory.__init__(self)
         self.dbpool = dbpool
+        self.CFG = cfg
+        self.WMSCFG = wmscfg
+        proxy = cfg.get('proxy', None) # 'proxy' is required, but we
+                                       # use .get for safety
         if proxy:
             self.proxy = urlparse.urlparse(proxy)
         else:
@@ -118,5 +122,8 @@ class WmsRelayFactory(HTTPFactory):
         p = HTTPFactory.buildProtocol(self, addr)
         p.dbpool = self.dbpool
         p.proxy  = self.proxy
+        p.CFG = self.CFG
+        p.WMSCFG = self.WMSCFG
+        
         return p
         

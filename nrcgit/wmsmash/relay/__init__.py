@@ -1,25 +1,6 @@
 from twisted.internet import defer
 
 ###
-### Config
-###
-
-CONFIG = {
-    'contactperson': "Admin",
-    'contactorganization': "Admin and sons",
-    'contactposition': "CEO",
-    'addresstype': "Work",
-    'address': "Nowhere lane, 1",
-    'city': 'Novosibirsk',
-    'stateorprovince': 'Novosibirsk region',
-    'postcode': '630090',
-    'country': "Russia",
-    'contactvoicetelephone': '',
-    'contactfacsimiletelephone': '',
-    'contactelectronicmailaddress': ''
-}
-
-###
 ### Database interaction
 ###
 
