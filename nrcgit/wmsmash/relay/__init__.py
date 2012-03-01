@@ -37,7 +37,6 @@ ORDER BY parent_id ASC, nxt_id DESC""", (set_name,))
         defer.returnValue(None)
 
 def getLayerData(dbpool, user, lset, layers):
-    print 'getLayerData', user, lset
     """Return Deferred for layers' information fetched from database."""
     layerData = dbpool.runQuery(
 """SELECT editor_namedlayertree.name, editor_namedlayer.name, editor_server.url, editor_server.id, editor_server.login, editor_server.passwd

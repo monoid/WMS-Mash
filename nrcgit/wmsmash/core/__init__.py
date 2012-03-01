@@ -195,7 +195,6 @@ def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
         
     
 def capCapabilitiesString(layers, config, lset_cfg, version='1.1.1'):
-    print 'lset_cfg=', lset_cfg
     root = etree.Element('WMT_MS_Capabilities', version=version)
     service = etree.SubElement(root, 'Service')
     etree.SubElement(service, 'Name').text = 'OGC:WMS'
