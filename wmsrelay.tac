@@ -19,7 +19,7 @@ SETTINGS = {
 
     # Base URL format string.  %s is used for layerset name
     # Used in GetCapabilities handler
-    'base_url_fmt': 'http://localhost:8080/virtual?Set=%s&SERVICE=WMS',
+    'base_url_fmt': 'http://localhost:8080/wm/%s/%s?SERVICE=WMS',
 }
 
 WMS_CONFIG = {

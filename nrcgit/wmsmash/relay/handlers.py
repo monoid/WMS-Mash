@@ -67,7 +67,7 @@ class GetCapabilities(WmsQuery):
             'title': desc[1],
             'abstract': desc[2],
             'keywords': [],
-            'url': (self.parent.channel.CFG['base_url_fmt'] % desc[0])
+            'url': (self.parent.channel.CFG['base_url_fmt'] % (self.user, self.lset))
             }))
         self.parent.finish()
             
