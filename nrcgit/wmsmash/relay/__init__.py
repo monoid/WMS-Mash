@@ -1,5 +1,6 @@
 from twisted.internet import defer
 
+
 ###
 ### Database interaction
 ###
@@ -30,11 +31,12 @@ If layerset does not exists, None is returned."""
     LEFT JOIN editor_server ON editor_layer.server_id = editor_server.id
     LEFT JOIN editor_namedlayertree ON editor_namedlayertree.id = editor_layertree.named_id
     LEFT JOIN editor_namedlayer ON editor_namedlayer.id = editor_layer.named_id
-  WHERE editor_set.name = %s 
+  WHERE editor_set.name = %s
 ORDER BY parent_id ASC, nxt_id DESC""", (set_name,))
         defer.returnValue((lset[0], layers))
     else:
         defer.returnValue(None)
+
 
 def getLayerData(dbpool, user, lset, layers):
     """Return Deferred for layers' information fetched from database."""
@@ -48,4 +50,3 @@ def getLayerData(dbpool, user, lset, layers):
     LEFT JOIN editor_server ON editor_layer.server_id = editor_server.id
   WHERE auth_user.username = %s AND editor_set.name = %s AND editor_namedlayertree.name = ANY(%s)""", (user, lset, layers))
     return layerData
-    

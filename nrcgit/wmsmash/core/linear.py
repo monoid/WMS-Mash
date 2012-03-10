@@ -1,5 +1,6 @@
 from twisted.internet.defer import Deferred
 
+
 class LinearDeferred(Deferred):
     actions = None
     gen = None
@@ -10,7 +11,7 @@ class LinearDeferred(Deferred):
         self.data = initial
 
         self._goToNext()
-        
+
     def _goToNext(self):
         """Do next action."""
         try:
@@ -29,7 +30,7 @@ class LinearDeferred(Deferred):
             self.err(data, elt)
 
         self._goToNext()
-            
+
     def next(self, prevData, nextData, elt):
         """Consume next result.
 Default implementation appends nextData to prevData (assuming it is a list)."""

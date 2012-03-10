@@ -1,6 +1,7 @@
 from xml.sax import saxutils
 import lxml.etree as etree
 
+
 def parseJuliaLatLngBB(str):
     elts = str.split()
     r = {}
@@ -8,6 +9,7 @@ def parseJuliaLatLngBB(str):
         e = e.split('=')
         r[e[0]] = float(e[1])
     return BoundingBox(r)
+
 
 class BoundingBox:
     bbox = None
@@ -25,7 +27,8 @@ class BoundingBox:
         else:
             self.bbox = bb.bbox.copy()
 
-NSMAP = { 'xlink': 'http://www.w3.org/1999/xlink' }
+NSMAP = {'xlink': 'http://www.w3.org/1999/xlink'}
+
 
 class Layer:
     id = None
@@ -40,7 +43,7 @@ class Layer:
     children = None
     latlngbb = None
     cap = None
-    
+
     def __init__(self, id, name, title, abstract, keywords, remote_name,
                  remote_url, parent, order, latlngbb, cap, layerDict=None):
         self.id = id
@@ -129,7 +132,7 @@ class Layer:
     def buildTree(records, root_title='Root'):
         layerDict = {}
         layers = []
-        ldParam = {'layerDict':layerDict}
+        ldParam = {'layerDict': layerDict}
         root = Layer(0, root_title, '', '', [], '', '', None,
                      0, None, None,
                      layerDict=layerDict)
@@ -137,11 +140,11 @@ class Layer:
             l = Layer(*rec, **ldParam)
             layers.append(l)
         return (root, layers, layerDict)
-            
+
+
 ###
 ### GetCapabilities
 ###
-
 def capContactInformation(config, version='1.1.1'):
     ci = etree.Element('ContactInformation')
 
@@ -169,10 +172,12 @@ def capContactInformation(config, version='1.1.1'):
     etree.SubElement(ci, 'ContactElectronicMailAddress').text = config['contactelectronicmailaddress']
     return ci
 
+
 def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
     sub = etree.SubElement
     cap = etree.Element('Capability')
     req = sub(cap, 'Request')
+
     def capRequest(req, name, formats, url):
         node = sub(req, name)
         for format in formats:
@@ -181,19 +186,20 @@ def capGetCapability(layers, config, lset_cfg, version='1.1.1'):
         onlr.set('{http://www.w3.org/1999/xlink}type', 'simple')
         onlr.set('{http://www.w3.org/1999/xlink}href', url)
         sub(sub(sub(node, 'DCPType'), 'HTTP'), 'Get').append(onlr)
+
     capRequest(req, 'GetCapabilities',
                ['application/vnd.ogc.wms_xml'],
                lset_cfg['url'])
     capRequest(req, 'GetMap',
-               ['image/png', 'image/jpeg', 'image/tiff' ],
+               ['image/png', 'image/jpeg', 'image/tiff'],
                lset_cfg['url'])
     capRequest(req, 'GetFeatureInfo',
                ['text/plain', 'text/html'],
                lset_cfg['url'])
     cap.append(layers.dump())
     return cap
-        
-    
+
+
 def capCapabilitiesString(layers, config, lset_cfg, version='1.1.1'):
     root = etree.Element('WMT_MS_Capabilities', version=version)
     service = etree.SubElement(root, 'Service')

@@ -32,10 +32,10 @@ class WmsRelayRequest(Request):
     def ensureWms(self, params):
         if ('SERVICE' not in params or params['SERVICE'] != 'WMS'):
             return False
-	if ('REQUEST' not in params):
-	    return False
+        if ('REQUEST' not in params):
+            return False
         # 1. Version number negotiation
-        # 2. VERSION parameter is mandatory in requests other 
+        # 2. VERSION parameter is mandatory in requests other
         #    than GetCapabilities
 #         if ('VERSION' not in params or params['VERSION'][0:2] != '1.'):
 #             return False
@@ -71,7 +71,7 @@ class WmsRelayRequest(Request):
             qs = Wms.wmsParseQuery(parsed[4])
 
             [user, layerset] = parsed[2].split('/')[-2:]
-                        
+
             if self.ensureWms(qs):
                 reqtype = qs['REQUEST'].upper()
                 if reqtype == 'GETCAPABILITIES':
@@ -86,6 +86,7 @@ class WmsRelayRequest(Request):
                 self.reportWmsError("Invalid WMS request", "InvalidRequest")
         except Exception as ex:
             self.reportWmsError("Internal error: %s %s" % (type(ex), ex), "InternalError")
+
 
 class WmsRelay(HTTPChannel):
     """
@@ -103,6 +104,7 @@ class WmsRelay(HTTPChannel):
     """
     requestFactory = WmsRelayRequest
 
+
 class WmsRelayFactory(HTTPFactory):
     protocol = WmsRelay
 
@@ -111,19 +113,18 @@ class WmsRelayFactory(HTTPFactory):
         self.dbpool = dbpool
         self.CFG = cfg
         self.WMSCFG = wmscfg
-        proxy = cfg.get('proxy', None) # 'proxy' is required, but we
-                                       # use .get for safety
+        proxy = cfg.get('proxy', None)  # 'proxy' is required, but we
+                                        # use .get for safety
         if proxy:
             self.proxy = urlparse.urlparse(proxy)
         else:
             self.proxy = None
-        
+
     def buildProtocol(self, addr):
         p = HTTPFactory.buildProtocol(self, addr)
         p.dbpool = self.dbpool
-        p.proxy  = self.proxy
+        p.proxy = self.proxy
         p.CFG = self.CFG
         p.WMSCFG = self.WMSCFG
-        
+
         return p
-        

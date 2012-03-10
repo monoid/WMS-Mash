@@ -18,6 +18,7 @@ import nrcgit.wmsmash.relay as relay
 
 SERVER_AGENT = 'WMS-Mash/0-dev'
 
+
 class WmsQuery:
     def __init__(self, parent, query):
         self.parent = parent
@@ -32,11 +33,12 @@ class WmsQuery:
     def run(self):
         pass
 
+
 ##
 ## GetCapabilities
 ##
 class GetCapabilities(WmsQuery):
-    FORMATS = [ 'text/xml' ]
+    FORMATS = ['text/xml']
     # Common required params like SERVICE and REQUEST are checked separately
     REQUIRED = []
 
@@ -51,7 +53,7 @@ class GetCapabilities(WmsQuery):
         qs = self.query
 
         d = relay.getCapabilitiesData(self.dbpool, self.user, self.lset)
-        d.addErrback(lambda e: self.parent.reportWmsError("DB error"+str(e), "DbError"))
+        d.addErrback(lambda e: self.parent.reportWmsError("DB error" + str(e), "DbError"))
         data = yield d
 
         if (data is None):
@@ -70,14 +72,14 @@ class GetCapabilities(WmsQuery):
             'url': (self.parent.channel.CFG['base_url_fmt'] % (self.user, self.lset))
             }))
         self.parent.finish()
-            
+
 
 class RemoteDataRequest(WmsQuery):
     """Request that fetches data from remote servers, e.g. GetCapabilities
 and GetMap.  If single layer is queried or multiple layers from same servers
 (not implemented yet), data is just transmitted to client.
 
-If multiple servers are queried, data is fetched from all servers and 
+If multiple servers are queried, data is fetched from all servers and
 then combined.  In this case, methoid init is called, and then all elements
 are combined with combine method sequentially.  If single server is used,
 init and combine are not called.
@@ -159,7 +161,7 @@ init and combine are not called.
 
         self.data = data
         self.init(layer_dict)
-        
+
     def init(self, layer_dict):
         pass
 
@@ -172,21 +174,21 @@ init and combine are not called.
     def handleError(self, err):
         self.parent.reportWmsError("Remote error", "RemoteError")
 
+
 ##
 ## GetFeatureInfo
 ##
-
 class GetFeatureInfo(RemoteDataRequest):
     # These are formats that can be concatenated
     # TODO: GML too?
-    FORMATS = [ 'text/html', 'text/plain' ]
+    FORMATS = ['text/html', 'text/plain']
 
-    REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
-                 'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
-		 'I', 'J' ]
+    REQUIRED = ['VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
+                'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
+                'I', 'J']
 
     text = ""
-    
+
     def __init__(self, parent, query, user, lset, dbpool):
         RemoteDataRequest.__init__(self, parent, query, user, lset, dbpool, proxy)
 
@@ -211,7 +213,7 @@ class GetFeatureInfo(RemoteDataRequest):
                                           len(self.query['STYLES']))):
                         if self.query['LAYERS'][i] == layer[0]:
                             qs['STYLES'] = self.query['STYLES'][i]
-                            break # Found
+                            break  # Found
 
                 if not first:
                     qs['TRANSPARENT'] = 'TRUE'
@@ -243,15 +245,16 @@ class GetFeatureInfo(RemoteDataRequest):
 
 MAX_IMG_SIZE = 2048
 
+
 class GetMap(RemoteDataRequest):
-    FORMATS = [ 'image/png', 'image/gif', 'image/jpeg', 'image/tiff' ]
+    FORMATS = ['image/png', 'image/gif', 'image/jpeg', 'image/tiff']
     OUTPUT_TYPE = {
         'image/png': 'PNG',
         'image/jpeg': 'JPEG',
         'image/tiff': 'TIFF',
     }
-    REQUIRED = [ 'VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
-                 'WIDTH', 'HEIGHT', 'FORMAT' ]
+    REQUIRED = ['VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
+                'WIDTH', 'HEIGHT', 'FORMAT']
 
     def __init__(self, parent, query, user, lset, dbpool, proxy):
         RemoteDataRequest.__init__(self, parent, query, user, lset, dbpool, proxy)
@@ -278,7 +281,7 @@ class GetMap(RemoteDataRequest):
                     qs['TRANSPARENT'] = 'TRUE'
                     if qs['FORMAT'] == 'image/jpeg':
                         qs['FORMAT'] = 'image/png'
-                    
+
                 if ('STYLES' in self.query) and (i < len(self.query['STYLES'])):
                     qs['STYLES'] = self.query['STYLES'][i]
                 yield self.connectRemoteUrl(layer, qs, [layer[1]], ImageClientFactory)
@@ -308,20 +311,20 @@ class GetMap(RemoteDataRequest):
         self.parent.write(data)
         self.parent.finish()
 
+
 ##
 ## Remote connection handling.
 ##
-
 class DumbHTTPClient(HTTPClient):
     """HTTP client that redirects most calls to factory that should be
 subclass of DumbHTTPClientFactory."""
     _fatherFinished = False
-    
+
     def connectionMade(self):
         # s.f.remote is either path or full url if it is proxy connection
         parsed = urlparse.urlparse(self.factory.remote)
         self._params = self.factory.params.copy()
-        host = parsed.netloc # hostname:port
+        host = parsed.netloc  # hostname:port
         login = self.factory.login
         password = self.factory.password
 
@@ -334,7 +337,7 @@ subclass of DumbHTTPClientFactory."""
         self.sendHeader('Host', host)
         self.sendHeader('User-Agent', SERVER_AGENT)
         if login and password:
-            b64str = base64.encodestring(login+':'+password)[:-1]
+            b64str = base64.encodestring(login + ':' + password)[:-1]
             self.sendHeader('Authorization', 'Basic ' + b64str)
         self.endHeaders()
         self.factory.connectionMade()
@@ -349,19 +352,21 @@ subclass of DumbHTTPClientFactory."""
 
     def handleHeader(self, key, value):
         self.factory.handleHeader(key, value)
-            
+
     def handleResponsePart(self, buffer):
         self.factory.handleResponsePart(buffer)
-    
+
     def handleResponseEnd(self):
         self.factory.handleResponseEnd()
         if not self._fatherFinished:
             self.transport.loseConnection()
 
+
 INIT = 0
 DATA = 1
 OGC_ERROR = 2
 TRANSPORT_ERROR = 3
+
 
 class DumbHTTPClientFactory(ClientFactory):
     protocol = DumbHTTPClient
@@ -429,34 +434,34 @@ class DumbHTTPClientFactory(ClientFactory):
         else:
             self.deferred.callback(self.getResult())
 
+
 ##
 ## Simple proxy client
 ##
-
 class ProxyClientFactory(DumbHTTPClientFactory):
     """Proxy client factory simply sends headers and data to client.
 It works for both GetMap and GetFeatureInfo.
 """
     def __init__(self, url, params, father, data, req):
         DumbHTTPClientFactory.__init__(self, url, params, father, data, req)
-    
+
     def buildProtocol(self, addr):
         proto = DumbHTTPClientFactory.buildProtocol(self, addr)
         self.father.registerProducer(proto, True)
         return proto
 
     def handleOtherHeader(self, key, value):
-       # TODO: handle preset headers
-       # t.web.server.Request sets default values for these headers in its
-       # 'process' method. When these headers are received from the remote
-       # server, they ought to override the defaults, rather than append to
-       # them.
-       if key.lower() == 'server':
-           pass
-       elif key.lower() in ['date', 'content-type']:
-           self.father.responseHeaders.setRawHeaders(key, [value])
-       else:
-           self.father.responseHeaders.addRawHeader(key, value)
+        # TODO: handle preset headers
+        # t.web.server.Request sets default values for these headers in its
+        # 'process' method. When these headers are received from the remote
+        # server, they ought to override the defaults, rather than append to
+        # them.
+        if key.lower() == 'server':
+            pass
+        elif key.lower() in ['date', 'content-type']:
+            self.father.responseHeaders.setRawHeaders(key, [value])
+        else:
+            self.father.responseHeaders.addRawHeader(key, value)
 
     def handleData(self, data):
         self.father.write(data)
@@ -467,28 +472,27 @@ It works for both GetMap and GetFeatureInfo.
         return True
     # TODO: unregisterProducer
 
+
 ##
 ## Image client
 ##
-
 class ImageClientFactory(DumbHTTPClientFactory):
     def __init__(self, url, params, father, data, req):
         DumbHTTPClientFactory.__init__(self, url, params, father, data, req)
         self.img = ImageFile.Parser()
 
     def handleOtherHeader(self, key, value):
-       # TODO: handle preset headers
-       # t.web.server.Request sets default values for these headers in its
-       # 'process' method. When these headers are received from the remote
-       # server, they ought to override the defaults, rather than append to
-       # them.
-       if key.lower() == 'server':
-           pass
-       elif key.lower() in ['date', 'content-type']:
-           self.father.responseHeaders.setRawHeaders(key, [value])
-       else:
-           self.father.responseHeaders.addRawHeader(key, value)
-       pass
+        # TODO: handle preset headers
+        # t.web.server.Request sets default values for these headers in its
+        # 'process' method. When these headers are received from the remote
+        # server, they ought to override the defaults, rather than append to
+        # them.
+        if key.lower() == 'server':
+            pass
+        elif key.lower() in ['date', 'content-type']:
+            self.father.responseHeaders.setRawHeaders(key, [value])
+        else:
+            self.father.responseHeaders.addRawHeader(key, value)
 
     def handleData(self, data):
         self.img.feed(data)
@@ -496,22 +500,22 @@ class ImageClientFactory(DumbHTTPClientFactory):
     def getResult(self):
         return self.img.close()
 
+
 class TextClientFactory(DumbHTTPClientFactory):
     text = ''
 
     def handleOtherHeader(self, key, value):
-       # TODO: handle preset headers
-       # t.web.server.Request sets default values for these headers in its
-       # 'process' method. When these headers are received from the remote
-       # server, they ought to override the defaults, rather than append to
-       # them.
-       if key.lower() == 'server':
-           pass
-       elif key.lower() in ['date', 'content-type']:
-           self.father.responseHeaders.setRawHeaders(key, [value])
-       else:
-           self.father.responseHeaders.addRawHeader(key, value)
-       pass
+        # TODO: handle preset headers
+        # t.web.server.Request sets default values for these headers in its
+        # 'process' method. When these headers are received from the remote
+        # server, they ought to override the defaults, rather than append to
+        # them.
+        if key.lower() == 'server':
+            pass
+        elif key.lower() in ['date', 'content-type']:
+            self.father.responseHeaders.setRawHeaders(key, [value])
+        else:
+            self.father.responseHeaders.addRawHeader(key, value)
 
     def handleData(self, data):
         self.text += data

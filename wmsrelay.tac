@@ -40,12 +40,13 @@ WMS_CONFIG = {
 
 application = service.Application("WMSMash Relay")
 
+
 def startProxy(dbpool):
     factory = WmsRelay.WmsRelayFactory(dbpool, cfg=SETTINGS, wmscfg=WMS_CONFIG)
     server = internet.TCPServer(PORT, factory, interface=IFACE)
 
     server.setServiceParent(application)
-    
+
 dbpool = txpostgres.ConnectionPool('ignored',
                                    user='wms-manager',
                                    database='wmsman',
