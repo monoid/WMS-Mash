@@ -58,10 +58,10 @@ class Layer:
             self.latlngbb = parseJuliaLatLngBB(latlngbb)
         else:
             self.latlngbb = BoundingBox()
-        if cap is not None:
-            self.cap = etree.XML(cap)
-        else:
+        if cap is None:
             self.cap = etree.Element("Layer")
+        else:
+            self.cap = etree.XML(cap)
 
         self.cleanCap()
 
