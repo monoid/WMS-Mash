@@ -22,8 +22,8 @@ If layerset does not exists, None is returned."""
         # reconstruct whole tree.
         layers = yield dbpool.runQuery(
 """SELECT editor_layertree.id, editor_namedlayertree.name,
-          editor_layertree.title, editor_layer.abstract, editor_namedlayer.name,
-          editor_server.url,
+          editor_layertree.title, editor_layer.abstract, editor_layer.keywords,
+          editor_namedlayer.name, editor_server.url,
           editor_layertree.parent_id, editor_layertree.first_id, editor_layertree.nxt_id,
           editor_layer.latlngbb, editor_layer.capablilities
   FROM editor_layertree

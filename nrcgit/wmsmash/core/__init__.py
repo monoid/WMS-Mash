@@ -45,7 +45,7 @@ class Layer:
     cap = None
 
     def __init__(self, id, name, title, abstract, keywords, remote_name,
-                 remote_url, parent, order, latlngbb, cap, layerDict=None):
+                 remote_url, parent, first_id, next_id, latlngbb, cap, layerDict=None):
         self.id = id
         self.name = unicode(name or '', 'utf-8') or None
         self.title = unicode(title or '', 'utf-8') or None
@@ -53,7 +53,8 @@ class Layer:
         self.keywords = map(lambda s: unicode(s, 'utf-8'), keywords or [])
         self.remote_name = unicode(remote_name or '', 'utf-8') or None
         self.remote_url = remote_url
-        self.order = order
+        self.first_id = first_id
+        self.next_id = next_id
         if latlngbb is not None:
             self.latlngbb = parseJuliaLatLngBB(latlngbb)
         else:
@@ -65,15 +66,18 @@ class Layer:
 
         self.cleanCap()
 
-        parent = parent or 0
+        #parent = parent or 0
         if layerDict is not None and parent in layerDict:
             self.parent = layerDict[parent]
-            self.parent.addChild(self)
+        else:
+            self.parent = None
 
         self.children = []
 
         if layerDict is not None:
             layerDict[self.id] = self
+
+        self.linked = False
 
     def cleanCap(self):
         layers = self.cap.xpath('/Layer/Layer')
@@ -92,14 +96,27 @@ class Layer:
         for l in llbb:
             self.cap.remove(l)
 
-    def getOrder(self):
-        return self.order
-
     def addChild(self, child):
         self.children.append(child)
-        self.children.sort(None, Layer.getOrder)
+
         if child.latlngbb.bbox:
             self.latlngbb.extendBy(child.latlngbb)
+
+    def linkTree(self, layerDict):
+        # Prevent looping if incorrect structure is created
+        if self.linked:
+            return
+
+        self.linked = True
+
+        # Link children recursively
+        if self.first_id is not None:
+            self.first = layerDict.get(self.first_id, None)
+            node = self.first
+            while node:
+                self.addChild(node)
+                node.linkTree(layerDict)
+                node = layerDict.get(node.next_id, None)
 
     def isGroup(self):
         return len(self.children) > 0
@@ -112,11 +129,10 @@ class Layer:
                 cascade = 0
             self.cap.attrib['cascade'] = str(cascade + 1)
 
-        if self.remote_name is None:
-            etree.SubElement(self.cap, 'Title').text = self.name
-        else:
+        etree.SubElement(self.cap, 'Title').text = self.title or ""
+        if self.remote_name:
             etree.SubElement(self.cap, 'Name').text = self.name
-            etree.SubElement(self.cap, 'Title').text = self.title or ""
+
         etree.SubElement(self.cap, 'Abstract').text = self.abstract or ""
         if self.latlngbb.bbox:
             bb = etree.SubElement(self.cap, 'LatLonBoundingBox')
@@ -133,12 +149,24 @@ class Layer:
         layerDict = {}
         layers = []
         ldParam = {'layerDict': layerDict}
-        root = Layer(0, root_title, '', '', [], '', '', None,
-                     0, None, None,
-                     layerDict=layerDict)
+        # root = Layer(0, root_title, '', '', [], '', '', None,
+        #              0, None, None,
+        #              layerDict=layerDict)
+
+        # Create Layer objects 
         for rec in records:
+            print len(rec)
             l = Layer(*rec, **ldParam)
             layers.append(l)
+
+        # Build a tree structure
+        # Lookup for node without a parent
+        for l in layers:
+            if l.parent is None:
+                root = l
+                # And link nodes recursively
+                root.linkTree(layerDict)
+                break
         return (root, layers, layerDict)
 
 
