@@ -155,7 +155,6 @@ class Layer:
 
         # Create Layer objects 
         for rec in records:
-            print len(rec)
             l = Layer(*rec, **ldParam)
             layers.append(l)
 
