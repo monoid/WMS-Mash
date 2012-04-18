@@ -473,7 +473,7 @@ It works for both GetMap and GetFeatureInfo.
         # 'process' method. When these headers are received from the remote
         # server, they ought to override the defaults, rather than append to
         # them.
-        if key.lower() == 'server':
+        if key.lower() in ['server', 'authorization']:
             pass
         elif key.lower() in ['date', 'content-type']:
             self.father.responseHeaders.setRawHeaders(key, [value])
