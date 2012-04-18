@@ -120,10 +120,27 @@ init and combine are not called.
 
     @defer.inlineCallbacks
     def run(self):
+        # Parse authorization header
+        (auth_user, auth_pass) = (None, None)
+        if self.parent.requestHeaders.hasHeader('Authorization'):
+            auths = self.parent.requestHeaders.getRawHeaders('Authorization')
+            for a in auths:
+                if a.startswith('Basic '):
+                    (auth_user, auth_pass) = base64.decodestring(a[6:]).split(':')
+                    break
+
         layers = self.query['LAYERS']
+
         qs = self.query
         if layers:
-            data = yield relay.getLayerData(self.dbpool, self.user, self.lset, layers)
+            data = yield relay.getLayerData(self.dbpool, self.user, self.lset, layers, auth_user=auth_user, auth_pass=auth_pass)
+
+            # Check authentification
+            for l in data:
+                if not l[6]:
+                    self.parent.setResponseCode(403, "Access denied")
+                    self.parent.finish()
+                    return
 
             # TODO: group sequence of layers
 
