@@ -81,7 +81,7 @@ def getLayerData(dbpool, user, lset_name, layers, auth_user=None, auth_pass=None
                     break
 
         layerData = yield dbpool.runQuery(
-    """SELECT editor_namedlayertree.name, editor_namedlayer.name, editor_server.url, editor_server.id, editor_server.login, editor_server.passwd, editor_layertree.public <= %s AS auth
+    """SELECT editor_namedlayertree.name, editor_namedlayer.name, editor_server.url, editor_server.id, editor_server.login, editor_server.passwd, (editor_layertree.public OR %s) AS auth
       FROM editor_layertree JOIN editor_set ON editor_layertree.lset_id = editor_set.id
         JOIN auth_user ON auth_user.id = editor_set.author_id
         LEFT JOIN editor_namedlayertree ON editor_namedlayertree.id = editor_layertree.named_id
