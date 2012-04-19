@@ -139,6 +139,7 @@ init and combine are not called.
             for l in data:
                 if not l[6]:
                     self.parent.setResponseCode(401, "Unauthorized")
+                    self.parent.setHeader('WWW-Authenticate', 'Basic realm="WMSMash"')
                     self.parent.finish()
                     return
 
