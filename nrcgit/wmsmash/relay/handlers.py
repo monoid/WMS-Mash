@@ -138,7 +138,7 @@ init and combine are not called.
             # Check authentification
             for l in data:
                 if not l[6]:
-                    self.parent.setResponseCode(403, "Access denied")
+                    self.parent.setResponseCode(401, "Unauthorized")
                     self.parent.finish()
                     return
 
