@@ -89,6 +89,6 @@ def getLayerData(dbpool, user, lset_name, layers, auth_user=None, auth_pass=None
         LEFT JOIN editor_namedlayer ON editor_namedlayer.id = editor_layer.named_id
         LEFT JOIN editor_server ON editor_layer.server_id = editor_server.id
       WHERE auth_user.username = %s AND editor_set.name = %s AND editor_namedlayertree.name = ANY(%s)""", (auth, user, lset_name, layers))
-        defer.returnValue(layerData))
+        defer.returnValue(layerData)
     else:
         defer.returnValue(None)
