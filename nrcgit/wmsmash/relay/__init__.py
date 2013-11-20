@@ -75,6 +75,7 @@ def getLayerData(dbpool, user, lset_name, layers, auth_user=None, auth_pass=None
             acl = yield dbpool.runQuery(
     """ SELECT auth_user.password FROM auth_user JOIN editor_set_acl ON auth_user.id = editor_set_acl.user_id WHERE editor_set_acl.set_id = %s AND auth_user.username = %s
     """, (lset[0][0], auth_user))
+            # Actually there should be at most one result.
             for (enc_pw,) in acl:
                 if check_django_pwd(enc_pw, auth_pass):
                     auth = True

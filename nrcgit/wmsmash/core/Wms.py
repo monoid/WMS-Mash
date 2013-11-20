@@ -3,11 +3,6 @@ import urllib
 import lxml.etree as etree
 
 
-def wmsBoolean(val):
-    """ Convert WMS boolean value to Python boolean. """
-    return val == '1' or str(val).lower() == 'true'
-
-
 def wmsErrorXmlString(errorMessage, code):
     args = ""
     ser = etree.Element('ServiceExceptionReport', version='1.1.1')

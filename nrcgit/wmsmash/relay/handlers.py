@@ -19,16 +19,15 @@ import nrcgit.wmsmash.relay as relay
 SERVER_AGENT = 'WMS-Mash/0-dev'
 
 
-class WmsQuery:
+class WmsQuery(object):
+    REQUIRED = frozenset([])
+
     def __init__(self, parent, query):
         self.parent = parent
         self.query = query
 
     def isValid(self):
-        for k in self.REQUIRED:
-            if k not in self.query:
-                return False
-        return True
+        return self.REQUIRED.issubset(self.query.iterkeys())
 
     def run(self):
         pass
@@ -40,10 +39,10 @@ class WmsQuery:
 class GetCapabilities(WmsQuery):
     FORMATS = ['text/xml']
     # Common required params like SERVICE and REQUEST are checked separately
-    REQUIRED = []
+    REQUIRED = frozenset([])
 
     def __init__(self, parent, query, user, lset, dbpool):
-        WmsQuery.__init__(self, parent, query)
+        super(GetCapabilities, self).__init__(parent, query)
         self.user = user
         self.lset = lset
         self.dbpool = dbpool
@@ -87,7 +86,7 @@ init and combine are not called.
     layers = None
 
     def __init__(self, parent, query, user, lset, dbpool, proxy):
-        WmsQuery.__init__(self, parent, query)
+        super(RemoteDataRequest, self).__init__(parent, query)
         self.user = user
         self.lset = lset
         self.dbpool = dbpool
@@ -201,14 +200,14 @@ class GetFeatureInfo(RemoteDataRequest):
     # TODO: GML too?
     FORMATS = ['text/html', 'text/plain']
 
-    REQUIRED = ['VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
-                'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
-                'I', 'J']
+    REQUIRED = frozenset(['VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
+                          'WIDTH', 'HEIGHT', 'QUERY_LAYERS', 'INFO_FORMAT', \
+                          'I', 'J'])
 
     text = ""
 
     def __init__(self, parent, query, user, lset, dbpool):
-        RemoteDataRequest.__init__(self, parent, query, user, lset, dbpool, proxy)
+        super(GetFeatureInfo, self).__init__(parent, query, user, lset, dbpool, proxy)
 
     def init(self, layer_dict):
         def req_gen():
@@ -271,11 +270,11 @@ class GetMap(RemoteDataRequest):
         'image/jpeg': 'JPEG',
         'image/tiff': 'TIFF',
     }
-    REQUIRED = ['VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
-                'WIDTH', 'HEIGHT', 'FORMAT']
+    REQUIRED = frozenset(['VERSION', 'LAYERS', 'STYLES', 'CRS', 'BBOX', \
+                          'WIDTH', 'HEIGHT', 'FORMAT'])
 
     def __init__(self, parent, query, user, lset, dbpool, proxy):
-        RemoteDataRequest.__init__(self, parent, query, user, lset, dbpool, proxy)
+        super(GetMap, self).__init__(parent, query, user, lset, dbpool, proxy)
 
     def init(self, layer_dict):
         qs = self.query
@@ -383,8 +382,15 @@ subclass of DumbHTTPClientFactory."""
 INIT = 0
 DATA = 1
 OGC_ERROR = 2
-TRANSPORT_ERROR = 3
 
+
+class OgcException(Exception):
+    def __init__(self, message):
+        super(OgcException, self).__init__()
+        self.message = message
+
+    def getMessage(self):
+        return self.message
 
 class DumbHTTPClientFactory(ClientFactory):
     protocol = DumbHTTPClient
@@ -448,7 +454,7 @@ class DumbHTTPClientFactory(ClientFactory):
     def handleResponseEnd(self):
         if self.state == OGC_ERROR:
             # TODO proper exception
-            self.deferred.errback(self.ogc_buf.getvalue())
+            self.deferred.errback(OgcException(self.ogc_buf.getvalue()))
         else:
             self.deferred.callback(self.getResult())
 
@@ -506,10 +512,12 @@ class ImageClientFactory(DumbHTTPClientFactory):
         # server, they ought to override the defaults, rather than append to
         # them.
         if key.lower() == 'server':
-            pass
+            pass # just ignore the header
         elif key.lower() in ['date', 'content-type']:
+            # override date and content-type
             self.father.responseHeaders.setRawHeaders(key, [value])
         else:
+            # add other header
             self.father.responseHeaders.addRawHeader(key, value)
 
     def handleData(self, data):
